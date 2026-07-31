@@ -1,15 +1,17 @@
 /* =========================================================
    ROOMS MODULE (rooms.js)
-   Universal Realtime MQTT Cloud Relay & Device Identity Engine.
-   Guarantees strict per-device name editing, ready state sync,
-   and 3-2-1 countdown game launcher.
+   Bulletproof Instant Realtime Multiplayer Engine
    ========================================================= */
 
 window.RoomsModule = {
   mqttClient: null,
+  peer: null,
+  connections: [],
+  hostConn: null,
   isHost: false,
   broadcastChannel: null,
   currentTopic: null,
+  joinRetryTimer: null,
 
   initLobby() {
     this.initBroadcastChannel();
@@ -46,10 +48,12 @@ window.RoomsModule = {
         try { this.mqttClient.end(); } catch (e) {}
       }
 
-      this.mqttClient = mqtt.connect("wss://broker.emqx.io:8084/mqtt", {
+      // High-availability WSS Broker endpoint
+      const brokerUrl = "wss://broker.emqx.io:8084/mqtt";
+      this.mqttClient = mqtt.connect(brokerUrl, {
         clientId: `client_${window.myPlayerId}_${Math.random().toString(16).substring(2, 6)}`,
-        keepalive: 30,
-        reconnectPeriod: 2000
+        keepalive: 20,
+        reconnectPeriod: 1500
       });
 
       this.mqttClient.on("connect", () => {
@@ -57,7 +61,7 @@ window.RoomsModule = {
         this.mqttClient.subscribe(topic, { qos: 0 });
 
         const status = document.querySelector("#roomStatusText");
-        if (status) status.textContent = "🟢 Đã kết nối Cloud Realtime!";
+        if (status) status.textContent = `🟢 Đã vào phòng ${roomCode}`;
       });
 
       this.mqttClient.on("message", (t, msg) => {
@@ -84,19 +88,34 @@ window.RoomsModule = {
       const input = document.querySelector("#joinCodeInput");
       if (input) input.value = cleanCode;
 
-      setTimeout(() => this.joinRoom(cleanCode), 300);
+      this.joinRoom(cleanCode);
     } else {
       const freshCode = window.generateRandomCode();
       window.gameState.roomCode = freshCode;
       this.isHost = true;
 
-      // Ensure initial host has persistent device myPlayerId
-      window.gameState.players[0].id = window.myPlayerId;
+      window.gameState.players = [
+        {
+          id: window.myPlayerId,
+          name: "Player 1",
+          avatar: "👑",
+          color: "#f4b21f",
+          money: window.GameConfig.STARTING_MONEY,
+          asset: 0,
+          host: true,
+          ready: true,
+          position: 0,
+          isBot: false,
+          bankrupt: false,
+          properties: []
+        }
+      ];
 
       const label = document.querySelector("#roomCodeLabel");
       if (label) label.textContent = freshCode;
 
       this.initMQTTCloudRelay(freshCode);
+      this.initPeerServer(freshCode);
     }
   },
 
@@ -128,8 +147,39 @@ window.RoomsModule = {
     this.updateUrlWithRoomCode(freshCode);
     this.renderLobbyPlayers();
     this.initMQTTCloudRelay(freshCode);
+    this.initPeerServer(freshCode);
 
     return freshCode;
+  },
+
+  initPeerServer(roomCode) {
+    if (typeof Peer === "undefined") return;
+    try {
+      if (this.peer) this.peer.destroy();
+      this.peer = new Peer(`monoconcard-${roomCode}`, {
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+          ]
+        }
+      });
+
+      this.peer.on("connection", (conn) => {
+        this.connections.push(conn);
+        conn.on("open", () => {
+          conn.send({
+            type: "SYNC_STATE",
+            players: window.gameState.players,
+            boardCells: window.boardCells,
+            screen: window.gameState.screen,
+            currentPlayer: window.gameState.currentPlayer,
+            round: window.gameState.round
+          });
+        });
+        conn.on("data", (data) => this.handleIncomingMessage(data));
+      });
+    } catch (e) {}
   },
 
   joinRoom(code) {
@@ -143,21 +193,48 @@ window.RoomsModule = {
     if (label) label.textContent = cleanCode;
 
     const status = document.querySelector("#roomStatusText");
-    if (status) status.textContent = `⏳ Đang kết nối vào phòng ${cleanCode}...`;
+    if (status) status.textContent = `🟢 Đã vào phòng ${cleanCode}`;
 
-    if (window.UIModule) window.UIModule.showToast(`⏳ Đang kết nối vào phòng ${cleanCode}...`);
+    // Guest local initial state: Set Guest player ONLY (not Host Player 1)
+    window.gameState.players = [
+      {
+        id: window.myPlayerId,
+        name: "Player 2",
+        avatar: "👤",
+        color: "#36a774",
+        money: window.GameConfig.STARTING_MONEY,
+        asset: 0,
+        host: false,
+        ready: false,
+        position: 0,
+        isBot: false,
+        bankrupt: false,
+        properties: []
+      }
+    ];
 
+    this.renderLobbyPlayers();
     this.initMQTTCloudRelay(cleanCode);
 
-    // Send Join Request
-    setTimeout(() => {
+    // Heartbeat Join Request retry until synced from Host
+    clearInterval(this.joinRetryTimer);
+    const sendJoin = () => {
       const joinPayload = {
         type: "JOIN_REQUEST",
         id: window.myPlayerId,
-        name: `Player ${window.gameState.players.length + 1}`
+        name: "Player 2"
       };
       this.publishCloudMessage(joinPayload);
-    }, 500);
+    };
+
+    sendJoin();
+    this.joinRetryTimer = setInterval(() => {
+      if (window.gameState.players.length > 1) {
+        clearInterval(this.joinRetryTimer);
+      } else {
+        sendJoin();
+      }
+    }, 1200);
   },
 
   handleIncomingMessage(data) {
@@ -176,7 +253,7 @@ window.RoomsModule = {
           money: window.GameConfig.STARTING_MONEY,
           asset: 0,
           host: false,
-          ready: false, // New guests must click Ready!
+          ready: false,
           position: 0,
           isBot: false,
           bankrupt: false,
@@ -186,8 +263,8 @@ window.RoomsModule = {
         this.renderLobbyPlayers();
         this.broadcastState();
         if (window.UIModule) window.UIModule.showToast(`🟢 ${newPlayer.name} đã gia nhập phòng!`);
-      } else if (existing) {
-        // If already existing, re-send current room state
+      } else {
+        // Re-broadcast state so joining player gets updated list
         this.broadcastState();
       }
     } else if (data.type === "UPDATE_NAME") {
@@ -205,7 +282,9 @@ window.RoomsModule = {
         if (this.isHost) this.broadcastState();
       }
     } else if (data.type === "SYNC_STATE") {
-      if (data.players) window.gameState.players = data.players;
+      if (data.players && Array.isArray(data.players) && data.players.length > 0) {
+        window.gameState.players = data.players;
+      }
       if (data.boardCells) window.boardCells = data.boardCells;
       if (data.currentPlayer !== undefined) window.gameState.currentPlayer = data.currentPlayer;
       if (data.round !== undefined) window.gameState.round = data.round;
@@ -253,7 +332,7 @@ window.RoomsModule = {
 
   updateMyPlayerName(newName) {
     const cleanName = newName.trim() || "Player";
-    const me = window.gameState.players.find(p => p.id === window.myPlayerId);
+    let me = window.gameState.players.find(p => p.id === window.myPlayerId);
 
     if (me) {
       me.name = cleanName;
@@ -271,9 +350,7 @@ window.RoomsModule = {
 
   toggleMyReady() {
     let me = window.gameState.players.find(p => p.id === window.myPlayerId);
-    if (!me && window.gameState.players.length > 0) {
-      me = window.gameState.players[0];
-    }
+    if (!me && window.gameState.players.length > 0) me = window.gameState.players[0];
 
     if (me) {
       me.ready = !me.ready;
@@ -372,7 +449,7 @@ window.RoomsModule = {
     if (!container) return;
 
     container.innerHTML = window.gameState.players.map((player, index) => {
-      const isMe = player.id === window.myPlayerId || (!window.gameState.players.some(p => p.id === window.myPlayerId) && index === 0);
+      const isMe = player.id === window.myPlayerId;
 
       return `
         <div class="lobby-player" style="animation-delay:${index * 70}ms">
