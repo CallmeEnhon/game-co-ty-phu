@@ -1,8 +1,7 @@
 /* =========================================================
    ROOMS MODULE (rooms.js)
    Universal Realtime MQTT Cloud Relay Engine.
-   Guarantees 100% Lockstep Synchronized Multiplayer,
-   Confirmable Name Editing, and Strict Turn Locking.
+   Guarantees Dynamic Room Code Generation, URL Sync, and Lockstep Sync.
    ========================================================= */
 
 window.RoomsModule = {
@@ -59,7 +58,7 @@ window.RoomsModule = {
         this.mqttClient.subscribe(topic, { qos: 0 });
 
         const status = document.querySelector("#roomStatusText");
-        if (status) status.textContent = `🟢 Đã vào phòng ${roomCode}`;
+        if (status) status.textContent = `🟢 Phòng ${roomCode} sẵn sàng!`;
       });
 
       this.mqttClient.on("message", (t, msg) => {
@@ -77,9 +76,10 @@ window.RoomsModule = {
     const urlParams = new URLSearchParams(window.location.search);
     const roomCode = urlParams.get("room");
 
-    if (roomCode) {
+    if (roomCode && roomCode.trim().length > 0) {
       const cleanCode = roomCode.trim().toUpperCase();
       window.gameState.roomCode = cleanCode;
+
       const label = document.querySelector("#roomCodeLabel");
       if (label) label.textContent = cleanCode;
 
@@ -88,6 +88,7 @@ window.RoomsModule = {
 
       this.joinRoom(cleanCode);
     } else {
+      // Direct load without ?room= parameter -> Create a fresh room automatically with random 4-letter code
       const freshCode = window.generateRandomCode();
       window.gameState.roomCode = freshCode;
       this.isHost = true;
@@ -112,6 +113,8 @@ window.RoomsModule = {
       const label = document.querySelector("#roomCodeLabel");
       if (label) label.textContent = freshCode;
 
+      this.updateUrlWithRoomCode(freshCode);
+      this.renderLobbyPlayers();
       this.initMQTTCloudRelay(freshCode);
     }
   },
@@ -141,9 +144,14 @@ window.RoomsModule = {
     const label = document.querySelector("#roomCodeLabel");
     if (label) label.textContent = freshCode;
 
+    const status = document.querySelector("#roomStatusText");
+    if (status) status.textContent = `🟢 Phòng mới: ${freshCode}`;
+
     this.updateUrlWithRoomCode(freshCode);
     this.renderLobbyPlayers();
     this.initMQTTCloudRelay(freshCode);
+
+    if (window.UIModule) window.UIModule.showToast(`✨ Đã tạo phòng mới: ${freshCode}`);
 
     return freshCode;
   },
