@@ -1,6 +1,6 @@
 /* =========================================================
    MONOCONCARD - SENIOR DESIGN SYSTEM (styles.css)
-   Vibrant Gothic Wood & 3D Isometric Board Game Theme
+   Vibrant Gothic Wood, Dual Camera Perspective & Zero-Clipping HUD
    ========================================================= */
 
 :root {
@@ -259,21 +259,9 @@ body {
   width: 140px;
 }
 
-.host-tag {
-  font-size: 11px;
-  color: var(--gothic-gold);
-}
-
-.ready-tag {
-  font-size: 12px;
-  font-weight: 800;
-  color: #2ecc71;
-}
-
-.wait-tag {
-  font-size: 12px;
-  color: #f39c12;
-}
+.host-tag { font-size: 11px; color: var(--gothic-gold); }
+.ready-tag { font-size: 12px; font-weight: 800; color: #2ecc71; }
+.wait-tag { font-size: 12px; color: #f39c12; }
 
 .btn-large {
   width: 100%;
@@ -299,25 +287,30 @@ body {
   position: relative;
 }
 
+/* SIDE PLAYER RAIL - FIXED WIDER CONTAINER TO PREVENT ALL CARD BORDER CLIPPING (SCREENSHOT 3) */
 .player-rail {
-  width: 185px;
-  padding: 16px 12px;
+  width: 215px !important;
+  min-width: 215px !important;
+  padding: 16px 12px !important;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  background: rgba(9, 19, 29, 0.5);
+  background: rgba(9, 19, 29, 0.65);
   z-index: 5;
   overflow-y: auto;
+  overflow-x: hidden !important;
+  box-sizing: border-box !important;
 }
 
-/* HIGH-CONTRAST SENIOR PLAYER HUD CARD (MATCHING IMAGE 2 EXACTLY) */
+/* HIGH-CONTRAST SENIOR PLAYER HUD CARD (MATCHING SCREENSHOT 3 EXACTLY WITHOUT CLIPPING) */
 .player-hud-card {
+  width: 100% !important;
   min-height: 72px !important;
-  padding: 8px 12px !important;
+  padding: 8px 10px !important;
   display: grid !important;
   grid-template-columns: 42px 1fr !important;
   align-items: center !important;
-  gap: 10px !important;
+  gap: 8px !important;
   background: rgba(10, 25, 42, 0.96) !important;
   border: 2px solid rgba(244, 196, 83, 0.4) !important;
   border-left: 6px solid var(--player-accent, #f4b21f) !important;
@@ -325,6 +318,8 @@ body {
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5) !important;
   color: #ffffff !important;
   overflow: hidden !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
   transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
 }
 
@@ -361,7 +356,7 @@ body {
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
-  max-width: 100px !important;
+  max-width: 105px !important;
   display: inline-block !important;
 }
 
@@ -392,7 +387,7 @@ body {
   place-items: center;
 }
 
-/* 32-CELL 9x9 BOARD & CAMERA PERSPECTIVES */
+/* 32-CELL 9x9 BOARD & DUAL CAMERA PERSPECTIVES (SCREENSHOT 1 VS SCREENSHOT 2) */
 .game-board {
   width: min(100%, 780px);
   aspect-ratio: 1 / 1;
@@ -413,14 +408,43 @@ body {
   transform-origin: center center;
 }
 
-.game-board.cam-p0 { transform: perspective(1200px) rotateX(42deg) rotateZ(0deg); }
-.game-board.cam-p1 { transform: perspective(1200px) rotateX(42deg) rotateZ(-90deg); }
-.game-board.cam-p2 { transform: perspective(1200px) rotateX(42deg) rotateZ(-180deg); }
-.game-board.cam-p3 { transform: perspective(1200px) rotateX(42deg) rotateZ(-270deg); }
+/* SCREENSHOT 1: 3D ISOMETRIC ROTATE VIEW (TILTED + 3D POPPING ELEMENTS) */
+.game-board.cam-p0 { transform: perspective(1200px) rotateX(48deg) rotateZ(0deg); }
+.game-board.cam-p1 { transform: perspective(1200px) rotateX(48deg) rotateZ(-90deg); }
+.game-board.cam-p2 { transform: perspective(1200px) rotateX(48deg) rotateZ(-180deg); }
+.game-board.cam-p3 { transform: perspective(1200px) rotateX(48deg) rotateZ(-270deg); }
 
+/* SCREENSHOT 2: 100% FLAT OVERHEAD LOCK VIEW (COMPLETELY FLAT CLEAN LOOK) */
 .game-board.cam-locked,
 .game-board.camera-locked {
   transform: perspective(1200px) rotateX(0deg) rotateZ(0deg) !important;
+}
+
+/* 3D POPPING ICONS & TOKENS WHEN IN 3D ROTATE VIEW (SCREENSHOT 1) */
+.game-board:not(.cam-locked):not(.camera-locked) .cell-icon-3d {
+  transform: rotateX(-35deg) translateZ(8px);
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.6));
+  transition: transform 0.4s ease;
+}
+
+.game-board:not(.cam-locked):not(.camera-locked) .board-token {
+  transform: rotateX(-35deg) translateZ(24px);
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.7), inset 0 2px 3px rgba(255, 255, 255, 0.8);
+  animation: floatToken 2.2s ease-in-out infinite alternate;
+}
+
+/* 100% FLAT ICONS & TOKENS WHEN IN FLAT OVERHEAD LOCK VIEW (SCREENSHOT 2) */
+.game-board.cam-locked .cell-icon-3d,
+.game-board.camera-locked .cell-icon-3d {
+  transform: none !important;
+  filter: none !important;
+}
+
+.game-board.cam-locked .board-token,
+.game-board.camera-locked .board-token {
+  transform: none !important;
+  animation: none !important;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4) !important;
 }
 
 #cameraLockBtn.locked {
@@ -429,7 +453,7 @@ body {
   color: white;
 }
 
-/* PERIMETER BOARD CELL & 3D ISOMETRIC ICON STYLING */
+/* PERIMETER BOARD CELL STYLING */
 .board-cell {
   position: relative;
   padding: 4px 2px;
@@ -456,7 +480,6 @@ body {
 
 .cell-icon-3d {
   font-size: 14px;
-  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
   margin-bottom: 1px;
   line-height: 1;
 }
@@ -509,7 +532,7 @@ body {
   font-size: 9px;
 }
 
-/* FLOATING 3D LEVITATING PLAYER TOKENS WITH SOFT DROP SHADOWS */
+/* PLAYER TOKENS */
 .board-token {
   width: 22px;
   height: 22px;
@@ -521,19 +544,14 @@ body {
   font-weight: 900;
   background: radial-gradient(circle at 35% 35%, #ffffff 0%, var(--token-color, #f4b21f) 65%, #000000 100%);
   border: 2px solid #ffffff;
-  box-shadow:
-    0 8px 12px rgba(0, 0, 0, 0.7),
-    0 2px 4px rgba(0, 0, 0, 0.5),
-    inset 0 2px 3px rgba(255, 255, 255, 0.8);
-  animation: floatToken 2.2s ease-in-out infinite alternate;
   transition: all 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);
   position: absolute;
   z-index: 30;
 }
 
 @keyframes floatToken {
-  0% { transform: translateY(0px); }
-  100% { transform: translateY(-4px); }
+  0% { transform: rotateX(-35deg) translateZ(20px) translateY(0px); }
+  100% { transform: rotateX(-35deg) translateZ(28px) translateY(-4px); }
 }
 
 .board-token.hop {
@@ -718,9 +736,9 @@ body {
 }
 
 @media (max-width: 900px) {
-  .player-rail { width: 140px; padding: 10px 6px; }
+  .player-rail { width: 155px !important; min-width: 155px !important; padding: 10px 6px !important; }
   .player-hud-card { min-height: 64px !important; padding: 6px 8px !important; grid-template-columns: 36px 1fr !important; }
-  .player-hud-name span { max-width: 75px !important; font-size: 12px !important; }
+  .player-hud-name span { max-width: 80px !important; font-size: 12px !important; }
   .player-hud-money { font-size: 13px !important; }
   .player-hud-stats { font-size: 9px !important; }
 }
