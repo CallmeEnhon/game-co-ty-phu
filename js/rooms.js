@@ -1,7 +1,7 @@
 /* =========================================================
    ROOMS MODULE (rooms.js)
-   Manages room creation, joining, adding/removing bots,
-   player name changes, bot difficulty settings, and realtime hooks.
+   Player naming rules: Player 1, Player 2...
+   Bot naming rules: Bot 1, Bot 2, Bot 3...
    ========================================================= */
 
 window.RoomsModule = {
@@ -17,15 +17,21 @@ window.RoomsModule = {
     }
     window.gameState.roomCode = code;
 
-    // Reset room players to 1 host when creating new room
-    const hostPlayer = window.gameState.players.find(p => p.host) || {
-      id: 0, name: "Sếp Lớn", avatar: "👨🏻‍💼", color: "#f0a43b", money: 1500, asset: 0, host: true, ready: true, position: 0, isBot: false, bankrupt: false, properties: []
+    // Reset room to 1 Host player (Player 1)
+    const hostPlayer = {
+      id: 0,
+      name: "Player 1",
+      avatar: "👑",
+      color: "#f4b21f",
+      money: window.GameConfig.STARTING_MONEY,
+      asset: 0,
+      host: true,
+      ready: true,
+      position: 0,
+      isBot: false,
+      bankrupt: false,
+      properties: []
     };
-    hostPlayer.money = window.GameConfig.STARTING_MONEY;
-    hostPlayer.asset = 0;
-    hostPlayer.position = 0;
-    hostPlayer.bankrupt = false;
-    hostPlayer.properties = [];
 
     window.gameState.players = [hostPlayer];
     this.renderLobbyPlayers();
@@ -72,7 +78,7 @@ window.RoomsModule = {
   },
 
   updatePlayerName(playerId, newName) {
-    const cleanName = newName.trim() || "Người chơi";
+    const cleanName = newName.trim() || `Player ${playerId + 1}`;
     const player = window.gameState.players.find(p => p.id === playerId);
     if (player) {
       player.name = cleanName;
@@ -89,17 +95,17 @@ window.RoomsModule = {
       return;
     }
 
-    const botAvatars = ["🤖", "👩🏻‍💼", "👨🏻‍💻", "👨🏻‍🔬", "💼"];
-    const botNamesPool = ["Bot Kế Toán", "Bot Marketing", "Bot Dev", "Bot HR", "Bot Sale"];
-    const usedNames = window.gameState.players.map(p => p.name);
-    const availableName = botNamesPool.find(name => !usedNames.includes(name)) || `Bot ${window.gameState.players.length + 1}`;
+    const currentBotCount = window.gameState.players.filter(p => p.isBot).length;
+    const botNumber = currentBotCount + 1;
+    const botName = `Bot ${botNumber}`;
 
+    const botAvatars = ["🤖", "🏰", "⚔️", "🛡️", "📜"];
     const botColors = ["#e56376", "#36a774", "#438bd4", "#a36bd4"];
     const availableColor = botColors[window.gameState.players.length % botColors.length];
 
     const newBot = {
       id: Date.now(),
-      name: availableName,
+      name: botName,
       avatar: botAvatars[window.gameState.players.length % botAvatars.length],
       color: availableColor,
       money: window.GameConfig.STARTING_MONEY,
@@ -115,6 +121,40 @@ window.RoomsModule = {
     window.gameState.players.push(newBot);
     this.renderLobbyPlayers();
     if (window.UIModule) window.UIModule.showToast(`Đã thêm ${newBot.name} vào phòng!`);
+  },
+
+  addHumanPlayer() {
+    if (window.gameState.players.length >= 4) {
+      if (window.UIModule) window.UIModule.showToast("Phòng đã đủ 4 người chơi!");
+      return;
+    }
+
+    const humanCount = window.gameState.players.filter(p => !p.isBot).length;
+    const playerNumber = humanCount + 1;
+    const playerName = `Player ${playerNumber}`;
+
+    const playerAvatars = ["👨🏻‍💼", "👩🏻‍💼", "👨🏻‍💻", "👨🏻‍🔬"];
+    const playerColors = ["#36a774", "#438bd4", "#a36bd4", "#e56376"];
+    const color = playerColors[window.gameState.players.length % playerColors.length];
+
+    const newPlayer = {
+      id: Date.now(),
+      name: playerName,
+      avatar: playerAvatars[window.gameState.players.length % playerAvatars.length],
+      color: color,
+      money: window.GameConfig.STARTING_MONEY,
+      asset: 0,
+      host: false,
+      ready: true,
+      position: 0,
+      isBot: false,
+      bankrupt: false,
+      properties: []
+    };
+
+    window.gameState.players.push(newPlayer);
+    this.renderLobbyPlayers();
+    if (window.UIModule) window.UIModule.showToast(`Đã vào phòng: ${newPlayer.name}!`);
   },
 
   removePlayer(playerId) {

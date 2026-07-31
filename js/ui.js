@@ -261,20 +261,20 @@ window.UIModule = {
 
   triggerChanceCard(player) {
     const chanceEvents = [
-      { text: "Thưởng KPI quý!", amount: 250, type: "good" },
-      { text: "Dự án chốt hợp đồng lớn!", amount: 300, type: "good" },
-      { text: "Team building công ty!", amount: 150, type: "good" },
-      { text: "Thiết bị hư hỏng cần bảo trì!", amount: -150, type: "bad" },
-      { text: "Hệ thống bị sập giờ cao điểm!", amount: -200, type: "bad" },
-      { text: "Trễ deadline bị phạt hợp đồng!", amount: -100, type: "bad" }
+      { text: "Vua ban phần thưởng Hoàng Gia!", amount: 300, type: "good" },
+      { text: "Thương nhân đường xa trao kho báu!", amount: 250, type: "good" },
+      { text: "Lễ hội Hoàng Gia trúng mùa!", amount: 150, type: "good" },
+      { text: "Bão bùng hư hại lâu đài cổ!", amount: -150, type: "bad" },
+      { text: "Nộp lệ phí tu sửa tháp cổ!", amount: -200, type: "bad" },
+      { text: "Trả tiền bảo an cho thương đội!", amount: -100, type: "bad" }
     ];
 
     const event = chanceEvents[Math.floor(Math.random() * chanceEvents.length)];
     player.money += event.amount;
 
     const sign = event.amount >= 0 ? "+" : "";
-    this.showToast(`❓ CƠ HỘI: ${event.text} (${sign}$${event.amount})`);
-    this.addLog(`❓ ${player.name} rút thẻ Cơ Hội: ${event.text} (${sign}$${event.amount})`);
+    this.showToast(`🔮 CƠ HỘI: ${event.text} (${sign}$${event.amount})`);
+    this.addLog(`🔮 ${player.name} rút thẻ Cơ Hội: ${event.text} (${sign}$${event.amount})`);
     window.AnimationsModule.spawnFloatingMoney(player.position, `${sign}$${event.amount}`, event.amount >= 0 ? "#22ac50" : "#ef4f43");
 
     this.checkBankruptcy(player);
@@ -287,8 +287,8 @@ window.UIModule = {
       .filter(cell => cell && cell.type === "property" && cell.ownerId === player.id);
 
     if (ownedProperties.length === 0) {
-      this.showToast(`🎉 ${player.name} đến Lễ hội nhưng chưa có công trình nào.`);
-      this.addLog(`${player.name} dừng tại Lễ hội công ty.`);
+      this.showToast(`👑 ${player.name} đến Lễ Hội Hoàng Gia nhưng chưa có lâu đài nào.`);
+      this.addLog(`${player.name} dừng tại Lễ Hội Hoàng Gia.`);
       this.nextTurn();
       return;
     }
@@ -296,12 +296,12 @@ window.UIModule = {
     const modal = document.querySelector("#propertyModal");
     if (!modal) return;
 
-    document.querySelector("#propertyHeaderName").textContent = "TỔ CHỨC LỄ HỘI CÔNG TY 🎉";
-    document.querySelector("#propertyName").textContent = "Chọn công trình để quảng bá";
+    document.querySelector("#propertyHeaderName").textContent = "TỔ CHỨC LỄ HỘI HOÀNG GIA 👑";
+    document.querySelector("#propertyName").textContent = "Chọn kiến trúc để ban phước";
     document.querySelector("#propertyPrice").textContent = "x2 Tiền Thuê";
     document.querySelector("#propertyRent").textContent = "Thời gian: 3 vòng";
-    document.querySelector("#propertyOwnerText").textContent = "Công trình được chọn sẽ nhân đôi tiền thuê trong 3 vòng tới!";
-    document.querySelector("#propertyImage").textContent = "🎉";
+    document.querySelector("#propertyOwnerText").textContent = "Kiến trúc được chọn sẽ nhân đôi tiền thuê trong 3 vòng tới!";
+    document.querySelector("#propertyImage").textContent = "👑";
 
     const actions = document.querySelector(".property-modal-actions");
     actions.innerHTML = "";
@@ -323,8 +323,8 @@ window.UIModule = {
 
   applyFestivalToProperty(player, cell) {
     cell.festivalUntil = window.gameState.round + window.GameConfig.FESTIVAL_DURATION_ROUNDS - 1;
-    this.showToast(`🎉 LỄ HỘI: ${cell.title} x2 TIỀN THUÊ TRONG 3 VÒNG!`);
-    this.addLog(`🎉 ${player.name} tổ chức Lễ hội tại ${cell.title}. Tiền thuê nhân đôi!`);
+    this.showToast(`👑 LỄ HỘI: ${cell.title} x2 TIỀN THUÊ TRONG 3 VÒNG!`);
+    this.addLog(`👑 ${player.name} tổ chức Lễ Hội tại ${cell.title}. Tiền thuê nhân đôi!`);
     window.AnimationsModule.animateFestivalGlow(cell.id);
     window.BoardModule.renderBoard();
   },
@@ -336,7 +336,15 @@ window.UIModule = {
 
     document.querySelector("#propertyHeaderName").textContent = cell.title.toUpperCase();
     document.querySelector("#propertyName").textContent = cell.title;
-    document.querySelector("#propertyImage").textContent = "🏢";
+    
+    // Icon mapping for Renaissance architecture
+    let icon = "🏰";
+    if (cell.title.includes("Thánh Đường") || cell.title.includes("Đức Bà") || cell.title.includes("Chartres") || cell.title.includes("Rouen") || cell.title.includes("Köln")) {
+      icon = "⛪";
+    } else if (cell.title.includes("Cung Điện") || cell.title.includes("Tổng Trấn") || cell.title.includes("Duomo")) {
+      icon = "🏛️";
+    }
+    document.querySelector("#propertyImage").textContent = icon;
 
     const actions = document.querySelector(".property-modal-actions");
     actions.innerHTML = "";

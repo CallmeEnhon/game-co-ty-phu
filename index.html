@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Prototype giao diện game Cờ Tỷ Phú Công Ty" />
-  <title>Cờ Tỷ Phú Công Ty</title>
+  <meta name="description" content="Cờ Tỷ Phú Phục Hưng - Renaissance Business Tour Edition" />
+  <title>Cờ Tỷ Phú Phục Hưng - Renaissance Edition</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -12,8 +12,8 @@
     <!-- HEADER -->
     <header class="app-header">
       <div class="brand">
-        <div class="brand-logo">🏢</div>
-        <strong>CỜ TỶ PHÚ CÔNG TY</strong>
+        <div class="brand-logo">⚜️</div>
+        <strong>CỜ TỶ PHÚ PHỤC HƯNG</strong>
       </div>
       <div class="header-actions">
         <button class="icon-button" aria-label="Âm thanh">🔊</button>
@@ -25,17 +25,16 @@
 
     <!-- SCREEN: LOBBY -->
     <main id="lobbyScreen" class="screen lobby-screen active">
-      <div class="lobby-bg-shapes"></div>
       <section class="lobby-left">
         <article class="glass-card action-card">
-          <h2>TẠO PHÒNG</h2>
-          <p>Tạo phòng mới và mời bạn bè</p>
+          <h2>TẠO PHÒNG HOÀNG GIA</h2>
+          <p>Tạo phòng mới và mời bạn bè tham gia</p>
           <button id="createRoomBtn" class="btn btn-success">Tạo phòng</button>
         </article>
 
         <article class="glass-card action-card">
           <h2>VÀO PHÒNG</h2>
-          <p>Nhập mã phòng để tham gia</p>
+          <p>Nhập mã phòng để tham gia ván chơi</p>
           <input id="joinCodeInput" class="room-input" placeholder="Nhập mã phòng" maxlength="8" />
           <button id="joinRoomBtn" class="btn btn-primary">Vào phòng</button>
         </article>
@@ -53,10 +52,13 @@
         <div id="lobbyPlayers" class="lobby-player-list"></div>
 
         <div class="lobby-bot-controls" style="display:flex; gap:10px; margin-bottom:16px; align-items:center; justify-content:space-between;">
-          <button id="addBotBtn" class="btn btn-light" onclick="window.RoomsModule.addBot()">🤖 Thêm Bot</button>
+          <div style="display:flex; gap:8px;">
+            <button id="addBotBtn" class="btn btn-light" onclick="window.RoomsModule.addBot()">🤖 Thêm Bot</button>
+            <button id="addPlayerBtn" class="btn btn-light" onclick="window.RoomsModule.addHumanPlayer()">👤 Thêm Người</button>
+          </div>
           <div class="bot-difficulty-select" style="display:flex; align-items:center; gap:6px; font-size:13px;">
-            <label style="font-weight:700;">Độ khó Bot:</label>
-            <select id="botDiffSelect" onchange="window.RoomsModule.setBotDifficulty(this.value)" style="padding:6px 10px; border-radius:6px; border:1px solid #cbd5e1; outline:none; font-family:inherit;">
+            <label style="font-weight:700; color:var(--gothic-gold);">Độ khó Bot:</label>
+            <select id="botDiffSelect" onchange="window.RoomsModule.setBotDifficulty(this.value)" style="padding:6px 10px; border-radius:6px; border:1px solid rgba(244, 196, 83, 0.4); background:rgba(4, 15, 27, 0.8); color:white; outline:none; font-family:inherit;">
               <option value="easy">Dễ</option>
               <option value="normal" selected>Vừa</option>
               <option value="hard">Khó</option>
@@ -64,7 +66,7 @@
           </div>
         </div>
 
-        <button id="startGameBtn" class="btn btn-success btn-large">Bắt đầu trò chơi</button>
+        <button id="startGameBtn" class="btn btn-primary btn-large">Bắt đầu trò chơi</button>
         <p class="room-hint">Cần ít nhất 2 người chơi để bắt đầu</p>
       </section>
     </main>
@@ -74,17 +76,16 @@
       <aside id="playerRail" class="player-rail"></aside>
 
       <section class="board-stage">
-        <div class="desk-decoration plant">🌿</div>
         <div class="game-board" id="gameBoard">
           <div class="board-center">
             <div class="turn-widget">
-              <h2>Lượt của: <span id="currentPlayerName">Sếp Lớn</span></h2>
+              <h2>Lượt của: <span id="currentPlayerName">Player 1</span></h2>
               <div class="dice-wrap">
                 <div id="diceA" class="dice-face" data-value="3"></div>
                 <div id="diceB" class="dice-face" data-value="4"></div>
               </div>
               <strong id="diceTotal" class="dice-total">Tổng: 7</strong>
-              <button id="rollDiceBtn" class="btn btn-primary btn-roll">Đổ xúc xắc</button>
+              <button id="rollDiceBtn" class="btn btn-primary btn-roll">🎲 Đổ Xúc Xắc</button>
               <div id="moveText" class="move-text">Di chuyển 7 ô</div>
             </div>
           </div>
@@ -99,7 +100,7 @@
     <main id="resultScreen" class="screen result-screen">
       <div class="confetti-layer" id="confettiLayer"></div>
       <section class="result-content">
-        <h1>🏆 KẾT THÚC TRÒ CHƠI!</h1>
+        <h1>🏆 KẾT THÚC TRÒ CHƠI HOÀNG GIA!</h1>
 
         <div class="result-grid">
           <article class="ranking-card">
@@ -107,10 +108,10 @@
           </article>
 
           <article class="stats-card">
-            <h2>THỐNG KÊ</h2>
+            <h2>THỐNG KÊ TRẬN ĐẤU</h2>
             <dl>
               <div><dt>Số lượt xúc xắc</dt><dd id="statDiceRolls">0</dd></div>
-              <div><dt>Tài sản mua</dt><dd id="statProperties">0</dd></div>
+              <div><dt>Lâu đài đã mua</dt><dd id="statProperties">0</dd></div>
               <div><dt>Cơ hội rút</dt><dd id="statChance">0</dd></div>
               <div><dt>Số lần phá sản</dt><dd id="statBankrupt">0</dd></div>
             </dl>
@@ -130,20 +131,20 @@
   <div id="propertyModal" class="modal-backdrop hidden">
     <article class="property-modal">
       <header class="property-modal-header">
-        Bạn đã dừng ở: <strong id="propertyHeaderName">PHÒNG MARKETING</strong>
+        Bạn đã dừng ở: <strong id="propertyHeaderName">LÂU ĐÀI AMBOISE</strong>
       </header>
       <div class="property-modal-body">
-        <div id="propertyImage" class="property-image">🖥️</div>
+        <div id="propertyImage" class="property-image">🏰</div>
         <div class="property-copy">
-          <h2 id="propertyName">Phòng Marketing</h2>
-          <p>Giá mua: <strong id="propertyPrice">$200</strong></p>
-          <p>Tiền thuê: <strong id="propertyRent">$30</strong></p>
+          <h2 id="propertyName">Lâu Đài Amboise</h2>
+          <p>Giá mua: <strong id="propertyPrice">$220</strong></p>
+          <p>Tiền thuê: <strong id="propertyRent">$35</strong></p>
           <hr />
           <p id="propertyOwnerText">Chưa có chủ sở hữu</p>
         </div>
       </div>
       <footer class="property-modal-actions">
-        <button id="buyPropertyBtn" class="btn btn-success">Mua ($200)</button>
+        <button id="buyPropertyBtn" class="btn btn-success">Mua ($220)</button>
         <button id="skipPropertyBtn" class="btn btn-danger">Không mua</button>
       </footer>
     </article>

@@ -1,6 +1,6 @@
 /* =========================================================
    STATE MODULE (state.js)
-   Manages game state, board data, player models, and rules.
+   Gothic & Renaissance Architecture Edition
    ========================================================= */
 
 window.GameConfig = {
@@ -11,36 +11,36 @@ window.GameConfig = {
   MAX_PROPERTY_LEVEL: 3
 };
 
-// Default initial state: ONLY 1 Host player when room is created!
+// Initial Player state: Only Player 1 (Host) initially
 window.initialPlayers = [
-  { id: 0, name: "Sếp Lớn", avatar: "👨🏻‍💼", color: "#f0a43b", money: 1500, asset: 0, host: true, ready: true, position: 0, isBot: false, bankrupt: false, properties: [] }
+  { id: 0, name: "Player 1", avatar: "👑", color: "#f4b21f", money: 1500, asset: 0, host: true, ready: true, position: 0, isBot: false, bankrupt: false, properties: [] }
 ];
 
 window.boardCells = [
-  { id: 0, title: "Bắt đầu", type: "start", icon: "↩️", subtitle: "Nhận $200" },
-  { id: 1, title: "Thuế VAT", type: "tax", price: "Trả $150", amount: 150 },
-  { id: 2, title: "Phòng Giám Đốc", type: "property", price: "$220", cost: 220, rent: 35, color: "#e36e64", ownerId: null, level: 0 },
-  { id: 3, title: "Cơ hội", type: "chance", icon: "❓" },
-  { id: 4, title: "Phòng Họp", type: "property", price: "$240", cost: 240, rent: 40, color: "#c9a54a", ownerId: null, level: 0 },
-  { id: 5, title: "Thuế tài sản", type: "tax", price: "Trả $100", amount: 100 },
-  { id: 6, title: "Phòng Kinh Doanh", type: "property", price: "$200", cost: 200, rent: 30, color: "#49a86a", ownerId: null, level: 0 },
-  { id: 7, title: "Đi công tác", type: "corner", icon: "✈️", subtitle: "Ghé thăm" },
-  { id: 8, title: "Phòng Pháp Chế", type: "property", price: "$200", cost: 200, rent: 30, color: "#8c6bb0", ownerId: null, level: 0 },
-  { id: 9, title: "Phòng Nhân Sự", type: "property", price: "$220", cost: 220, rent: 35, color: "#8c6bb0", ownerId: null, level: 0 },
-  { id: 10, title: "Cơ hội", type: "chance", icon: "❓" },
-  { id: 11, title: "Bãi đỗ xe", type: "corner", icon: "🚗" },
-  { id: 12, title: "Phòng Marketing", type: "property", price: "$200", cost: 200, rent: 30, color: "#efc42b", ownerId: null, level: 0 },
-  { id: 13, title: "Phòng Kế Toán", type: "property", price: "$200", cost: 200, rent: 30, color: "#efc42b", ownerId: null, level: 0 },
-  { id: 14, title: "Thuế thu nhập", type: "tax", price: "Trả $200", amount: 200 },
-  { id: 15, title: "Phòng R&D", type: "property", price: "$240", cost: 240, rent: 40, color: "#d8574e", ownerId: null, level: 0 },
-  { id: 16, title: "Cơ hội", type: "chance", icon: "❓" },
-  { id: 17, title: "Phòng Dev", type: "property", price: "$220", cost: 220, rent: 35, color: "#3f89d4", ownerId: null, level: 0 },
-  { id: 18, title: "Nhà tù", type: "corner", icon: "🏚️", subtitle: "Tạm giam" },
-  { id: 19, title: "Cơ hội", type: "chance", icon: "❓" },
-  { id: 20, title: "Phòng Kho", type: "property", price: "$200", cost: 200, rent: 30, color: "#5c9a6b", ownerId: null, level: 0 },
-  { id: 21, title: "Cơ hội", type: "chance", icon: "❓" },
-  { id: 22, title: "Lễ hội công ty", type: "festival", icon: "🎉", subtitle: "Tăng giá công trình" },
-  { id: 23, title: "Cơ hội", type: "chance", icon: "❓" }
+  { id: 0, title: "Cổng Khải Hoàn", type: "start", icon: "⚜️", subtitle: "Nhận $200" },
+  { id: 1, title: "Thuế Giáo Hội", type: "tax", price: "Trả $150", amount: 150 },
+  { id: 2, title: "Lâu Đài Amboise", type: "property", price: "$220", cost: 220, rent: 35, color: "#e36e64", ownerId: null, level: 0 },
+  { id: 3, title: "Cơ Hội", type: "chance", icon: "🔮" },
+  { id: 4, title: "Cung Điện Chambord", type: "property", price: "$240", cost: 240, rent: 40, color: "#c9a54a", ownerId: null, level: 0 },
+  { id: 5, title: "Thuế Vương Quyền", type: "tax", price: "Trả $100", amount: 100 },
+  { id: 6, title: "Lâu Đài Chenonceau", type: "property", price: "$200", cost: 200, rent: 30, color: "#49a86a", ownerId: null, level: 0 },
+  { id: 7, title: "Chuyến Du Hành", type: "corner", icon: "⛵", subtitle: "Ghé thăm" },
+  { id: 8, title: "Tháp Giuốc-Đan", type: "property", price: "$200", cost: 200, rent: 30, color: "#8c6bb0", ownerId: null, level: 0 },
+  { id: 9, title: "Thánh Đường Chartres", type: "property", price: "$220", cost: 220, rent: 35, color: "#8c6bb0", ownerId: null, level: 0 },
+  { id: 10, title: "Cơ Hội", type: "chance", icon: "🔮" },
+  { id: 11, title: "Đấu Trường Gothic", type: "corner", icon: "🛡️" },
+  { id: 12, title: "Thánh Đường Rouen", type: "property", price: "$200", cost: 200, rent: 30, color: "#efc42b", ownerId: null, level: 0 },
+  { id: 13, title: "Đức Bà Paris", type: "property", price: "$200", cost: 200, rent: 30, color: "#efc42b", ownerId: null, level: 0 },
+  { id: 14, title: "Thuế Vận Tải", type: "tax", price: "Trả $200", amount: 200 },
+  { id: 15, title: "Đại Thánh Đường Köln", type: "property", price: "$240", cost: 240, rent: 40, color: "#d8574e", ownerId: null, level: 0 },
+  { id: 16, title: "Cơ Hội", type: "chance", icon: "🔮" },
+  { id: 17, title: "Đại Điện Duomo", type: "property", price: "$220", cost: 220, rent: 35, color: "#3f89d4", ownerId: null, level: 0 },
+  { id: 18, title: "Tháp Giam Cổ", type: "corner", icon: "⛓️", subtitle: "Tạm giam" },
+  { id: 19, title: "Cơ Hội", type: "chance", icon: "🔮" },
+  { id: 20, title: "Cung Điện Tổng Trấn", type: "property", price: "$200", cost: 200, rent: 30, color: "#5c9a6b", ownerId: null, level: 0 },
+  { id: 21, title: "Cơ Hội", type: "chance", icon: "🔮" },
+  { id: 22, title: "Lễ Hội Hoàng Gia", type: "festival", icon: "👑", subtitle: "x2 Tiền Thuê" },
+  { id: 23, title: "Cơ Hội", type: "chance", icon: "🔮" }
 ];
 
 window.gridPositions = [
@@ -58,7 +58,7 @@ window.gameState = {
   rolling: false,
   busy: false,
   roomCode: "4F7A",
-  botDifficulty: "normal", // easy, normal, hard
+  botDifficulty: "normal",
   players: JSON.parse(JSON.stringify(window.initialPlayers)),
   stats: {
     startTime: Date.now(),
