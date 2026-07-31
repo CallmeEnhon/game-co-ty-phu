@@ -613,9 +613,7 @@ window.UIModule = {
         const input = document.querySelector("#joinCodeInput");
         const code = input ? input.value.trim().toUpperCase() : "";
         if (!code) return alert("Vui lòng nhập mã phòng!");
-        const label = document.querySelector("#roomCodeLabel");
-        if (label) label.textContent = code;
-        this.showToast(`Đã vào phòng: ${code}`);
+        window.RoomsModule.joinRoom(code);
       };
     }
 

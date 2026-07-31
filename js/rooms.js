@@ -140,12 +140,28 @@ window.RoomsModule = {
   },
 
   joinRoom(code) {
-    window.gameState.roomCode = code;
-    this.updateUrlWithRoomCode(code);
+    if (!code) return;
+    const cleanCode = code.trim().toUpperCase();
+    window.gameState.roomCode = cleanCode;
+    this.updateUrlWithRoomCode(cleanCode);
     this.isHost = false;
+
+    const label = document.querySelector("#roomCodeLabel");
+    if (label) label.textContent = cleanCode;
+
+    const status = document.querySelector("#roomStatusText");
+    if (status) status.textContent = `⏳ Đang vào phòng ${cleanCode}...`;
+
+    if (window.UIModule) window.UIModule.showToast(`⏳ Đang kết nối vào phòng ${cleanCode}...`);
 
     const myId = window.myPlayerId || Date.now();
     window.myPlayerId = myId;
+
+    const joinPayload = {
+      type: "JOIN_REQUEST",
+      id: myId,
+      name: `Player ${window.gameState.players.length + 1}`
+    };
 
     if (typeof Peer !== "undefined") {
       try {
@@ -153,21 +169,13 @@ window.RoomsModule = {
         this.peer = new Peer();
 
         this.peer.on("open", () => {
-          const hostPeerId = `monoconcard-${code}`;
+          const hostPeerId = `monoconcard-${cleanCode}`;
           this.hostConn = this.peer.connect(hostPeerId);
 
           this.hostConn.on("open", () => {
-            const status = document.querySelector("#roomStatusText");
             if (status) status.textContent = "🟢 Đã kết nối với Chủ phòng!";
-
-            const joinData = {
-              type: "JOIN_REQUEST",
-              id: myId,
-              name: `Player ${window.gameState.players.length + 1}`
-            };
-
-            this.hostConn.send(joinData);
-            this.broadcastToLocal(joinData);
+            this.hostConn.send(joinPayload);
+            this.broadcastToLocal(joinPayload);
           });
 
           this.hostConn.on("data", (data) => {
@@ -175,14 +183,15 @@ window.RoomsModule = {
           });
         });
 
-        this.peer.on("error", () => {
-          this.addHumanPlayerLocally(myId);
+        this.peer.on("error", (err) => {
+          console.warn("Peer connection error:", err);
+          this.broadcastToLocal(joinPayload);
         });
       } catch (e) {
-        this.addHumanPlayerLocally(myId);
+        this.broadcastToLocal(joinPayload);
       }
     } else {
-      this.addHumanPlayerLocally(myId);
+      this.broadcastToLocal(joinPayload);
     }
   },
 
