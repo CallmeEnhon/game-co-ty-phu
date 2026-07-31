@@ -1,6 +1,6 @@
 /* =========================================================
    MONOCONCARD - ULTIMATE ZERO-BUG GAME SYSTEM (styles.css)
-   Clean Screen Scoping, 3D/Flat Camera, Bot Protection & Zero Overflow
+   Strict Screen Scoping, Dual 3D/Flat Camera & Zero Overflow
    ========================================================= */
 
 :root {
@@ -130,7 +130,7 @@ body {
   place-items: center;
 }
 
-/* STRICT SCREEN SCOPING - COMPLETELY PREVENTS OVERLAPPING SCREENS */
+/* STRICT SCREEN SCOPING - GUARANTEES NON-ACTIVE SCREENS ARE 100% HIDDEN */
 .screen {
   display: none !important;
   flex: 1;
@@ -146,9 +146,9 @@ body {
 }
 
 /* LOBBY SCREEN */
-.lobby-screen {
+.lobby-screen.active {
+  display: flex !important;
   padding: 30px 40px;
-  display: flex;
   gap: 32px;
   align-items: center;
   justify-content: center;
@@ -283,7 +283,9 @@ body {
 }
 
 /* GAME SCREEN */
-.game-screen {
+.game-screen.active {
+  display: flex !important;
+  flex-direction: row;
   background:
     radial-gradient(circle at 50% 20%, rgba(244, 196, 83, 0.08), rgba(9, 19, 29, 0.95)),
     linear-gradient(180deg, #180d05 0%, #090502 100%);
@@ -291,8 +293,6 @@ body {
   height: calc(100vh - 48px) !important;
   max-height: calc(100vh - 48px) !important;
   overflow: hidden !important;
-  display: flex;
-  flex-direction: row;
 }
 
 /* SIDE PLAYER RAIL WITH INTEGRATED EMBEDDED ACTIVITY LOG AT BOTTOM */
