@@ -551,6 +551,19 @@ body {
   background: var(--parchment);
   overflow: hidden;
   border-radius: 4px;
+  cursor: default;
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.board-cell.property,
+.board-cell.beach {
+  cursor: pointer;
+}
+.board-cell.property:hover,
+.board-cell.beach:hover {
+  box-shadow: 0 0 8px rgba(244,196,83,0.7);
+  transform: scale(1.04);
+  z-index: 10;
 }
 
 .cell-body {
@@ -564,16 +577,25 @@ body {
   overflow: hidden;
 }
 
-.cell-icon-3d {
+/* Special cells (chance, tax, jail, start, festival, world_tour) */
+.special-body {
+  margin-top: 0;
+  justify-content: space-evenly;
+  height: 100%;
+}
+
+.cell-icon-3d,
+.corner-icon {
   font-size: 13px;
   line-height: 1;
   margin-bottom: 1px;
 }
 
+/* Property/Beach cell title - dark on light parchment background */
 .cell-title {
   font-size: 9.5px;
   font-weight: 900;
-  color: #1f140a;
+  color: #1a0a00;
   width: 100%;
   white-space: nowrap;
   overflow: hidden;
@@ -581,15 +603,45 @@ body {
   text-align: center;
   line-height: 1.1;
   padding: 0 1px;
+  text-shadow: none;
+}
+
+/* Special cell titles - dark on parchment (NOT white!) */
+.cell-title-special {
+  font-size: 8px;
+  font-weight: 900;
+  color: #1a0a00 !important;
+  white-space: normal !important;
+  line-height: 1.15;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  text-shadow: none !important;
 }
 
 .cell-price {
-  font-size: 8.5px;
+  font-size: 8px;
   font-weight: 900;
   color: #1b4332;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.cell-subtitle {
+  font-size: 7px;
+  font-weight: 700;
+  color: #4a3020;
+  white-space: normal;
+  line-height: 1.2;
+  text-align: center;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  padding: 0 2px;
+  text-shadow: none;
 }
 
 .color-stripe {
@@ -619,36 +671,41 @@ body {
   font-size: 8px;
 }
 
-/* PLAYER TOKENS */
+/* PLAYER TOKENS – smooth CSS transition for movement */
 .board-token {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  color: white;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 900;
-  background: radial-gradient(circle at 35% 35%, #ffffff 0%, var(--token-color, #f4b21f) 65%, #000000 100%);
-  border: 2px solid #ffffff;
-  transition: all 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);
+  background: radial-gradient(circle at 35% 35%, #ffffff 0%, var(--token-color, #f4b21f) 60%, rgba(0,0,0,0.6) 100%);
+  border: 2px solid rgba(255,255,255,0.9);
+  /* Smooth glide + spring bounce */
+  transition: transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.3s ease;
   position: absolute;
   z-index: 30;
+  cursor: default;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
 }
 
 @keyframes floatToken {
-  0% { transform: rotateX(-35deg) translateZ(20px) translateY(0px); }
-  100% { transform: rotateX(-35deg) translateZ(28px) translateY(-4px); }
+  0%   { transform: rotateX(-35deg) translateZ(22px) translateY(0px); }
+  100% { transform: rotateX(-35deg) translateZ(30px) translateY(-5px); }
 }
 
+/* Hop animation: token bounces up when stepping to a new cell */
 .board-token.hop {
-  animation: tokenHop 0.42s ease !important;
+  animation: tokenHop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
 }
 
 @keyframes tokenHop {
-  0% { transform: translateY(0) scale(1); }
-  50% { transform: translateY(-16px) scale(1.25); }
-  100% { transform: translateY(0) scale(1); }
+  0%   { transform: translateY(0)    scale(1); }
+  40%  { transform: translateY(-18px) scale(1.3); }
+  70%  { transform: translateY(-8px)  scale(1.1); }
+  100% { transform: translateY(0)    scale(1); }
 }
 
 /* BOARD CENTER AREA */
@@ -669,18 +726,23 @@ body {
 }
 
 .turn-widget {
-  width: clamp(180px, 75%, 230px);
-  padding: 8px 12px;
+  width: clamp(180px, 75%, 240px);
+  padding: 10px 14px;
   text-align: center;
   color: white;
-  background: linear-gradient(180deg, rgba(15, 34, 54, 0.95), rgba(6, 17, 28, 0.96));
-  border-radius: 12px;
-  border: 1px dashed var(--gothic-gold);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.8);
+  background: linear-gradient(160deg, rgba(15,34,54,0.97) 0%, rgba(6,17,28,0.98) 100%);
+  border-radius: 14px;
+  border: 1.5px solid var(--gothic-gold);
+  box-shadow:
+    0 12px 30px rgba(0,0,0,0.85),
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 0 0 1px rgba(244,196,83,0.12);
   pointer-events: auto;
   position: relative;
-  z-index: 100;
-  backdrop-filter: blur(8px);
+  z-index: 200;   /* above board in 3D space */
+  backdrop-filter: blur(12px);
+  /* Will be counter-rotated by JS to stay flat */
+  will-change: transform;
 }
 
 .turn-widget h2 {
@@ -882,4 +944,201 @@ body {
   .player-hud-name span { max-width: 80px !important; font-size: 11px !important; }
   .player-hud-money { font-size: 12px !important; }
   .player-hud-stats { font-size: 8.5px !important; }
+}
+
+/* ─── DICE SETTLE ANIMATION ─────────────────────────────── */
+.dice-face.settle {
+  animation: diceSettle 0.28s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes diceSettle {
+  0%   { transform: scale(1.3) rotate(-8deg); }
+  60%  { transform: scale(0.95) rotate(3deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+/* ─── TURN WIDGET: stays flat when camera rotates ───────── */
+/* cam-locked: no rotation needed at all */
+.game-board.cam-locked .turn-widget,
+.game-board.camera-locked .turn-widget {
+  transform: none !important;
+}
+
+/* ─── JAIL BADGE ─────────────────────────────────────────── */
+.jail-badge {
+  display: inline-block;
+  font-size: 9px;
+  color: #e74c3c;
+  font-weight: 700;
+  background: rgba(231,76,60,0.12);
+  border-radius: 4px;
+  padding: 1px 4px;
+  margin-top: 2px;
+}
+
+/* ─── CELL INFO PANEL ────────────────────────────────────── */
+#cellInfoPanel {
+  position: fixed;
+  z-index: 2000;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 280px;
+  background: rgba(10, 22, 38, 0.98);
+  border: 1.5px solid var(--gothic-gold);
+  border-radius: 14px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 0 1px rgba(244,196,83,0.15);
+  overflow: hidden;
+  font-size: 13px;
+  color: #cfd8dc;
+  backdrop-filter: blur(16px);
+  animation: cipSlideIn 0.25s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+@keyframes cipSlideIn {
+  from { opacity: 0; transform: translateY(-45%) scale(0.92); }
+  to   { opacity: 1; transform: translateY(-50%) scale(1); }
+}
+
+.cip-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(244,196,83,0.2);
+  position: relative;
+}
+
+.cip-icon { font-size: 22px; flex-shrink: 0; }
+
+.cip-title {
+  font-size: 14px;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: 0.3px;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cip-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  color: #cfd8dc;
+  font-size: 11px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background 0.15s;
+}
+.cip-close:hover { background: rgba(231,76,60,0.4); color: white; }
+
+.cip-body {
+  padding: 10px 14px 14px;
+  max-height: 65vh;
+  overflow-y: auto;
+}
+
+.cip-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  font-size: 12px;
+}
+.cip-row span { color: #7f8c8d; }
+.cip-row strong { font-weight: 700; }
+
+.cip-badge {
+  margin: 8px 0 4px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+.cip-badge.festival {
+  background: rgba(243,156,18,0.18);
+  border: 1px solid rgba(243,156,18,0.4);
+  color: #f39c12;
+}
+.cip-badge.monopoly {
+  background: rgba(231,76,60,0.18);
+  border: 1px solid rgba(231,76,60,0.4);
+  color: #e74c3c;
+}
+
+.cip-section-title {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--gothic-gold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 10px 0 5px;
+}
+
+.cip-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.cip-table th {
+  color: #546e7a;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 3px 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  text-align: left;
+}
+.cip-table td {
+  padding: 4px 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  color: #b0bec5;
+}
+.cip-table tr.current-level-row {
+  background: rgba(244,196,83,0.08);
+  border-radius: 4px;
+}
+.cip-table tr.current-level-row td {
+  color: #fff;
+  font-weight: 700;
+}
+
+.cip-group-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.cip-group-dot {
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.7);
+  white-space: nowrap;
+}
+
+/* festival-badge on board cell */
+.festival-badge {
+  position: absolute;
+  top: 12px;
+  left: 2px;
+  font-size: 7px;
+  font-weight: 900;
+  background: rgba(243,156,18,0.9);
+  color: white;
+  border-radius: 3px;
+  padding: 0 2px;
+  line-height: 1.4;
+  z-index: 5;
 }
