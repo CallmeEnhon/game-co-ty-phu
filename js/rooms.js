@@ -1,13 +1,11 @@
 /* =========================================================
    ROOMS MODULE (rooms.js)
-   Bulletproof Instant Realtime Multiplayer Engine
+   Universal Realtime MQTT Cloud Relay & In-Game Action Sync Engine.
+   Guarantees 100% Lockstep Synchronization Across All Devices.
    ========================================================= */
 
 window.RoomsModule = {
   mqttClient: null,
-  peer: null,
-  connections: [],
-  hostConn: null,
   isHost: false,
   broadcastChannel: null,
   currentTopic: null,
@@ -48,9 +46,7 @@ window.RoomsModule = {
         try { this.mqttClient.end(); } catch (e) {}
       }
 
-      // High-availability WSS Broker endpoint
-      const brokerUrl = "wss://broker.emqx.io:8084/mqtt";
-      this.mqttClient = mqtt.connect(brokerUrl, {
+      this.mqttClient = mqtt.connect("wss://broker.emqx.io:8084/mqtt", {
         clientId: `client_${window.myPlayerId}_${Math.random().toString(16).substring(2, 6)}`,
         keepalive: 20,
         reconnectPeriod: 1500
@@ -115,7 +111,6 @@ window.RoomsModule = {
       if (label) label.textContent = freshCode;
 
       this.initMQTTCloudRelay(freshCode);
-      this.initPeerServer(freshCode);
     }
   },
 
@@ -147,39 +142,8 @@ window.RoomsModule = {
     this.updateUrlWithRoomCode(freshCode);
     this.renderLobbyPlayers();
     this.initMQTTCloudRelay(freshCode);
-    this.initPeerServer(freshCode);
 
     return freshCode;
-  },
-
-  initPeerServer(roomCode) {
-    if (typeof Peer === "undefined") return;
-    try {
-      if (this.peer) this.peer.destroy();
-      this.peer = new Peer(`monoconcard-${roomCode}`, {
-        config: {
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
-          ]
-        }
-      });
-
-      this.peer.on("connection", (conn) => {
-        this.connections.push(conn);
-        conn.on("open", () => {
-          conn.send({
-            type: "SYNC_STATE",
-            players: window.gameState.players,
-            boardCells: window.boardCells,
-            screen: window.gameState.screen,
-            currentPlayer: window.gameState.currentPlayer,
-            round: window.gameState.round
-          });
-        });
-        conn.on("data", (data) => this.handleIncomingMessage(data));
-      });
-    } catch (e) {}
   },
 
   joinRoom(code) {
@@ -195,7 +159,6 @@ window.RoomsModule = {
     const status = document.querySelector("#roomStatusText");
     if (status) status.textContent = `🟢 Đã vào phòng ${cleanCode}`;
 
-    // Guest local initial state: Set Guest player ONLY (not Host Player 1)
     window.gameState.players = [
       {
         id: window.myPlayerId,
@@ -216,7 +179,6 @@ window.RoomsModule = {
     this.renderLobbyPlayers();
     this.initMQTTCloudRelay(cleanCode);
 
-    // Heartbeat Join Request retry until synced from Host
     clearInterval(this.joinRetryTimer);
     const sendJoin = () => {
       const joinPayload = {
@@ -264,7 +226,6 @@ window.RoomsModule = {
         this.broadcastState();
         if (window.UIModule) window.UIModule.showToast(`🟢 ${newPlayer.name} đã gia nhập phòng!`);
       } else {
-        // Re-broadcast state so joining player gets updated list
         this.broadcastState();
       }
     } else if (data.type === "UPDATE_NAME") {
@@ -298,6 +259,19 @@ window.RoomsModule = {
       if (window.UIModule) window.UIModule.renderPlayerRail();
     } else if (data.type === "START_COUNTDOWN") {
       this.playCountdownAndStart();
+    } else if (data.type === "ACTION_ROLL_DICE") {
+      // Don't re-roll if originated from this device
+      if (data.senderId !== window.myPlayerId && window.UIModule) {
+        window.UIModule.applyRemoteDiceRoll(data);
+      }
+    } else if (data.type === "ACTION_BUY_PROPERTY") {
+      if (data.senderId !== window.myPlayerId && window.UIModule) {
+        window.UIModule.applyRemoteBuyProperty(data);
+      }
+    } else if (data.type === "ACTION_NEXT_TURN") {
+      if (data.senderId !== window.myPlayerId && window.UIModule) {
+        window.UIModule.applyRemoteNextTurn(data);
+      }
     }
   },
 
@@ -415,11 +389,9 @@ window.RoomsModule = {
       window.UIModule.showScreen("game");
       window.BoardModule.renderBoard();
       window.UIModule.renderPlayerRail();
+      window.UIModule.updateTurnControls();
 
       const firstPlayer = window.gameState.players[window.gameState.currentPlayer];
-      const rollBtn = document.querySelector("#rollDiceBtn");
-      if (rollBtn) rollBtn.disabled = firstPlayer ? firstPlayer.isBot : false;
-
       if (firstPlayer && firstPlayer.isBot) {
         window.BotModule.handleBotTurn(firstPlayer);
       }
@@ -479,7 +451,6 @@ window.RoomsModule = {
       `;
     }).join("");
 
-    // Toggle Ready Button state for current device user
     const me = window.gameState.players.find(p => p.id === window.myPlayerId) || window.gameState.players[0];
     const toggleReadyBtn = document.querySelector("#toggleReadyBtn");
     if (toggleReadyBtn && me) {

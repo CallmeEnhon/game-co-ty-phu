@@ -1,82 +1,105 @@
 /* =========================================================
    UI MODULE (ui.js)
-   MonoConCard Official Business Tour Edition
-   Supports 4-Beaches Instant Win, 3-Doubles Jail,
-   World Tour Flight Modal, 10% Asset Tax & x5 Festival.
+   MonoConCard - Realtime In-Game Action Sync & View Engine
    ========================================================= */
 
 window.UIModule = {
-  init() {
-    this.bindEvents();
-    this.renderPlayerRail();
-    if (window.BoardModule) window.BoardModule.renderBoard();
-    if (window.RoomsModule) window.RoomsModule.initLobby();
-  },
+  toastTimer: null,
 
-  showScreen(name) {
-    document.querySelectorAll(".screen").forEach(screen => screen.classList.remove("active"));
-    const target = document.querySelector(`#${name}Screen`);
+  showScreen(screenName) {
+    window.gameState.screen = screenName;
+
+    document.querySelectorAll(".screen").forEach(screen => {
+      screen.classList.remove("active");
+    });
+
+    const target = document.querySelector(`#${screenName}Screen`);
     if (target) target.classList.add("active");
 
     const leaveBtn = document.querySelector("#leaveRoomBtn");
-    if (leaveBtn) leaveBtn.classList.toggle("hidden", name === "lobby");
-    window.gameState.screen = name;
+    if (leaveBtn) {
+      if (screenName === "lobby") leaveBtn.classList.add("hidden");
+      else leaveBtn.classList.remove("hidden");
+    }
 
-    if (name === "result") {
-      this.renderRankings();
-      if (window.AnimationsModule) window.AnimationsModule.createConfetti();
+    if (screenName === "result") {
+      this.renderResults();
+      if (window.AnimationsModule) window.AnimationsModule.triggerConfetti();
     }
   },
 
   renderPlayerRail() {
-    const container = document.querySelector("#playerRail");
-    if (!container) return;
+    const rail = document.querySelector("#playerRail");
+    if (!rail) return;
 
-    container.innerHTML = window.gameState.players.map((player, index) => {
-      const isActive = index === window.gameState.currentPlayer && !player.bankrupt;
-      const isBankrupt = player.bankrupt;
-      const ownedBeaches = window.boardCells.filter(c => c.type === "beach" && c.ownerId === player.id).length;
+    rail.innerHTML = window.gameState.players.map((player, idx) => {
+      const isCurrent = idx === window.gameState.currentPlayer;
 
       return `
-        <article class="player-hud ${isActive ? "active" : ""} ${isBankrupt ? "bankrupt" : ""}" style="--player-color:${player.color}">
-          <div class="player-hud-top">
+        <article class="player-card ${isCurrent ? "active-turn" : ""} ${player.bankrupt ? "bankrupt" : ""}">
+          <header class="player-card-header">
             <div class="avatar" style="--avatar-color:${player.color}">${player.avatar}</div>
-            <div>
-              <div class="player-hud-name">
+            <div class="player-info">
+              <h3>
                 ${player.name}
-                ${player.isBot ? "🤖" : ""}
-                ${player.host ? "👑" : ""}
-              </div>
-              <div class="player-hud-money">$${player.money.toLocaleString()}</div>
+                ${player.isBot ? '<span class="bot-badge">🤖 Bot</span>' : ''}
+              </h3>
+              <p>${player.host ? "👑 Chủ phòng" : "Người chơi"}</p>
             </div>
-          </div>
-          <div class="player-hud-asset">
-            ${isBankrupt ? "<span style='color:#ef4f43;font-weight:900;'>PHÁ SẢN</span>" : `
-              Tài sản: $${player.asset.toLocaleString()} | 🏖️ ${ownedBeaches}/4
-            `}
-          </div>
+          </header>
+
+          <dl class="player-card-stats">
+            <div>
+              <dt>Tiền mặt</dt>
+              <dd>$${(player.money || 0).toLocaleString()}</dd>
+            </div>
+            <div>
+              <dt>Tài sản</dt>
+              <dd>$${(player.asset || 0).toLocaleString()}</dd>
+            </div>
+          </dl>
         </article>
       `;
     }).join("");
 
+    const nameEl = document.querySelector("#currentPlayerName");
     const current = window.gameState.players[window.gameState.currentPlayer];
-    const nameLabel = document.querySelector("#currentPlayerName");
-    if (nameLabel && current) {
-      nameLabel.textContent = current.name;
-      nameLabel.style.color = current.color;
+    if (nameEl && current) {
+      nameEl.textContent = `${current.name} ${current.isBot ? "(Bot)" : ""}`;
+      nameEl.style.color = current.color;
+    }
+
+    this.updateTurnControls();
+  },
+
+  updateTurnControls() {
+    const current = window.gameState.players[window.gameState.currentPlayer];
+    const rollBtn = document.querySelector("#rollDiceBtn");
+    if (!rollBtn || !current) return;
+
+    const isMyTurn = current.id === window.myPlayerId || (!current.isBot && window.RoomsModule && window.RoomsModule.isHost && window.gameState.players.length === 1);
+
+    if (window.gameState.screen === "game" && !window.gameState.busy && !window.gameState.rolling) {
+      if (isMyTurn) {
+        rollBtn.disabled = false;
+        rollBtn.textContent = "🎲 Đổ Xúc Xắc";
+      } else {
+        rollBtn.disabled = true;
+        rollBtn.textContent = `⏳ Lượt của ${current.name}...`;
+      }
     }
   },
 
-  renderRankings() {
+  renderResults() {
     const listContainer = document.querySelector("#rankingList");
     if (!listContainer) return;
 
     const sorted = [...window.gameState.players]
-      .map(player => ({
-        ...player,
-        totalAsset: player.money + player.asset + player.properties.reduce((sum, idx) => {
+      .map(p => ({
+        ...p,
+        totalAsset: p.money + (p.properties || []).reduce((acc, idx) => {
           const cell = window.boardCells[idx];
-          return sum + (cell ? (cell.cost || 200) + (cell.level || 0) * window.calculateUpgradeCost(cell) : 0);
+          return acc + (cell ? cell.cost : 0);
         }, 0)
       }))
       .sort((a, b) => b.totalAsset - a.totalAsset);
@@ -121,6 +144,19 @@ window.UIModule = {
     const total = result.total;
     const isDouble = result.valA === result.valB;
 
+    // Broadcast Action Roll Dice via Cloud
+    if (window.RoomsModule) {
+      window.RoomsModule.publishCloudMessage({
+        type: "ACTION_ROLL_DICE",
+        senderId: window.myPlayerId,
+        playerId: current.id,
+        valA: result.valA,
+        valB: result.valB,
+        total,
+        isDouble
+      });
+    }
+
     const totalEl = document.querySelector("#diceTotal");
     const moveTextEl = document.querySelector("#moveText");
 
@@ -129,391 +165,305 @@ window.UIModule = {
 
     this.addLog(`${current.name} đổ xúc xắc: ${result.valA} + ${result.valB} = ${total} ${isDouble ? "(ĐỔ ĐÔI!)" : ""}`);
 
-    // Rule: 3 consecutive doubles -> Sent to Prison / Lost Island
     if (isDouble) {
       current.doubleRollCount = (current.doubleRollCount || 0) + 1;
       if (current.doubleRollCount >= 3) {
         current.doubleRollCount = 0;
-        current.position = 24; // Hòn Đảo Bị Lãng Quên tile index
+        current.position = 24;
         current.inJail = true;
         this.showToast(`🚨 ${current.name} ĐỔ ĐÔI 3 LẦN LIÊN TIẾP! BỊ ĐƯA VÀO ĐẢO BỊ LẶNG QUÊN!`);
         this.addLog(`🚨 ${current.name} đổ đôi 3 lần liên tiếp và bị giam tại Hòn Đảo Bị Lãng Quên!`);
-        window.BoardModule.renderTokens();
-        await this.delay(1200);
-        window.gameState.rolling = false;
-        this.nextTurn();
+        window.BoardModule.updatePlayerTokens();
+        setTimeout(() => this.nextTurn(), 1500);
         return;
       }
     } else {
       current.doubleRollCount = 0;
     }
 
-    await window.AnimationsModule.animatePlayerMove(current, total);
-    await this.delay(250);
-
-    const landedCell = window.boardCells[current.position];
-    this.showToast(`${current.name} dừng tại: ${landedCell.title.toUpperCase()}`);
-
-    await this.handleCellAction(current, landedCell);
-
-    window.gameState.turnCount++;
-    window.gameState.rolling = false;
-  },
-
-  async handleCellAction(player, cell) {
-    if (cell.type === "property" || cell.type === "beach") {
-      if (cell.ownerId === null || cell.ownerId === undefined) {
-        if (player.isBot) {
-          if (window.BotModule.shouldBuyProperty(player, cell)) {
-            this.buyProperty(player, cell);
-          } else {
-            this.addLog(`${player.name} bỏ qua ${cell.title}.`);
-          }
-          await this.delay(600);
-          this.nextTurn();
-        } else {
-          this.openPropertyModal(cell, "buy");
-        }
-      } else if (cell.ownerId === player.id) {
-        if ((cell.level || 0) < window.GameConfig.MAX_PROPERTY_LEVEL) {
-          if (player.isBot) {
-            if (window.BotModule.shouldUpgradeProperty(player, cell)) {
-              this.upgradeProperty(player, cell);
-            } else {
-              this.addLog(`${player.name} chưa nâng cấp ${cell.title}.`);
-            }
-            await this.delay(600);
-            this.nextTurn();
-          } else {
-            this.openPropertyModal(cell, "upgrade");
-          }
-        } else {
-          this.addLog(`${player.name} dừng tại ${cell.title} (đã đạt Lv.3 tối đa).`);
-          await this.delay(600);
-          this.nextTurn();
-        }
-      } else {
-        const owner = window.gameState.players.find(p => p.id === cell.ownerId);
-        if (owner && !owner.bankrupt) {
-          const rent = window.calculateEffectiveRent(cell);
-          this.payRent(player, owner, rent, cell);
-        }
-        await this.delay(700);
-        this.nextTurn();
+    await window.AnimationsModule.movePlayerStepByStep(current, total, (newPos, passedStart) => {
+      if (passedStart) {
+        current.money += window.GameConfig.PASS_START_BONUS;
+        this.showToast(`🚩 ${current.name} qua ô Bắt Đầu: +$${window.GameConfig.PASS_START_BONUS}`);
+        this.addLog(`🚩 ${current.name} đi qua ô Bắt Đầu và nhận +$${window.GameConfig.PASS_START_BONUS}`);
+        this.renderPlayerRail();
       }
-    } else if (cell.type === "tax") {
-      // 10% Asset Tax calculation
-      const totalAssetValue = player.money + player.asset;
-      const taxAmount = Math.max(50, Math.round(totalAssetValue * window.GameConfig.TAX_PERCENTAGE));
-      player.money -= taxAmount;
-
-      this.addLog(`💸 ${player.name} nộp Thuế Tài Sản (10%): $${taxAmount}.`);
-      window.AnimationsModule.spawnFloatingMoney(player.position, `-$${taxAmount}`, "#ef4f43");
-      this.checkBankruptcy(player);
-      this.renderPlayerRail();
-      await this.delay(700);
-      this.nextTurn();
-    } else if (cell.type === "world_tour") {
-      if (player.isBot) {
-        // Bot picks valuable unowned property or opponents' property
-        const targetCellIndex = window.BotModule.selectWorldTourDestination(player);
-        await this.flyPlayerToDestination(player, targetCellIndex);
-      } else {
-        this.openWorldTourModal(player);
-      }
-    } else if (cell.type === "chance") {
-      window.gameState.stats.chanceDrawn++;
-      this.triggerChanceCard(player);
-      await this.delay(800);
-      this.nextTurn();
-    } else if (cell.type === "festival") {
-      if (player.isBot) {
-        const bestProperty = window.BotModule.selectBestFestivalProperty(player);
-        if (bestProperty) {
-          this.applyFestivalToProperty(player, bestProperty);
-        } else {
-          this.addLog(`${player.name} tới Lễ Hội nhưng chưa có công trình.`);
-        }
-        await this.delay(600);
-        this.nextTurn();
-      } else {
-        this.openFestivalModal(player);
-      }
-    } else {
-      this.addLog(`${player.name} dừng tại ${cell.title}.`);
-      await this.delay(600);
-      this.nextTurn();
-    }
-  },
-
-  buyProperty(player, cell) {
-    if (player.money < cell.cost) return false;
-
-    player.money -= cell.cost;
-    player.asset += cell.cost;
-    cell.ownerId = player.id;
-    cell.level = 0;
-    player.properties.push(cell.id);
-
-    window.gameState.stats.propertiesBought++;
-    this.addLog(`🏰 ${player.name} đã sở hữu ${cell.title} ($${cell.cost})!`);
-    window.AnimationsModule.spawnFloatingMoney(cell.id, `-$${cell.cost}`, "#ef4f43");
-
-    // Check Instant 4 Beaches Victory condition!
-    if (window.checkBeachMonopolyWin(player)) {
-      this.showToast(`🏖️ ${player.name} ĐÃ SỞ HỮU CẢ 4 BÃI BIỂN! THẮNG TUYỆT ĐỐI!`);
-      this.addLog(`🏆 ${player.name} sở hữu cả 4 bãi biển Nice, Síp, Venice, Bali và GIÀNH CHIẾN THẮNG!`);
-      setTimeout(() => this.showScreen("result"), 1200);
-      return true;
-    }
-
-    this.renderPlayerRail();
-    window.BoardModule.renderBoard();
-    return true;
-  },
-
-  upgradeProperty(player, cell) {
-    const cost = window.calculateUpgradeCost(cell);
-    if (player.money < cost) return false;
-
-    player.money -= cost;
-    player.asset += cost;
-    cell.level = (cell.level || 0) + 1;
-
-    this.addLog(`🏗️ ${player.name} nâng cấp ${cell.title} lên Lv.${cell.level} ($${cost})!`);
-    window.AnimationsModule.spawnFloatingMoney(cell.id, `-$${cost}`, "#ef4f43");
-    window.AnimationsModule.animateUpgradeBuilding(cell.id);
-
-    this.renderPlayerRail();
-    window.BoardModule.renderBoard();
-    return true;
-  },
-
-  payRent(tenant, landlord, rentAmount, cell) {
-    const actualRent = Math.min(tenant.money, rentAmount);
-    tenant.money -= actualRent;
-    landlord.money += actualRent;
-
-    this.addLog(`⚠️ ${tenant.name} trả $${actualRent} tiền thuê cho ${landlord.name} tại ${cell.title}.`);
-    window.AnimationsModule.spawnFloatingMoney(cell.id, `-$${actualRent}`, "#ef4f43");
-
-    this.checkBankruptcy(tenant);
-    this.renderPlayerRail();
-  },
-
-  openWorldTourModal(player) {
-    const modal = document.querySelector("#propertyModal");
-    if (!modal) return;
-
-    document.querySelector("#propertyHeaderName").textContent = "CHUYẾN ĐI VÒNG QUANH THẾ GIỚI ✈️";
-    document.querySelector("#propertyName").textContent = "Bay tự do tới bất kỳ ô nào";
-    document.querySelector("#propertyPrice").textContent = "Lệ phí bay: $50";
-    document.querySelector("#propertyRent").textContent = "Điểm đến tùy chọn";
-    document.querySelector("#propertyOwnerText").textContent = "Chọn địa điểm bạn muốn hạ cánh ngay lập tức!";
-    document.querySelector("#propertyImage").textContent = "✈️";
-
-    const actions = document.querySelector(".property-modal-actions");
-    actions.innerHTML = "";
-
-    const select = document.createElement("select");
-    select.style.cssText = "width:100%; padding:10px; font-family:inherit; font-size:14px; border-radius:8px; margin-bottom:12px;";
-    window.boardCells.forEach((c, idx) => {
-      const opt = document.createElement("option");
-      opt.value = idx;
-      opt.textContent = `${idx}. ${c.title} (${c.price || c.type.toUpperCase()})`;
-      select.appendChild(opt);
     });
-    actions.appendChild(select);
 
-    const flyBtn = document.createElement("button");
-    flyBtn.className = "btn btn-primary";
-    flyBtn.textContent = "Bay Ngay ($50)";
-    flyBtn.disabled = player.money < window.GameConfig.WORLD_TOUR_FEE;
-    flyBtn.onclick = async () => {
-      modal.classList.add("hidden");
-      const targetIndex = parseInt(select.value, 10);
-      await this.flyPlayerToDestination(player, targetIndex);
-    };
-
-    const skipBtn = document.createElement("button");
-    skipBtn.className = "btn btn-danger";
-    skipBtn.textContent = "Ở lại";
-    skipBtn.onclick = () => {
-      modal.classList.add("hidden");
-      this.nextTurn();
-    };
-
-    actions.appendChild(flyBtn);
-    actions.appendChild(skipBtn);
-    modal.classList.remove("hidden");
+    window.gameState.rolling = false;
+    this.handleCellAction(current);
   },
 
-  async flyPlayerToDestination(player, targetIndex) {
-    const fee = window.GameConfig.WORLD_TOUR_FEE;
-    player.money -= fee;
+  async applyRemoteDiceRoll(data) {
+    const diceA = document.querySelector("#diceA");
+    const diceB = document.querySelector("#diceB");
+    if (diceA) diceA.setAttribute("data-value", data.valA);
+    if (diceB) diceB.setAttribute("data-value", data.valB);
 
-    const oldPos = player.position;
-    player.position = targetIndex;
+    const current = window.gameState.players.find(p => p.id === data.playerId) || window.gameState.players[window.gameState.currentPlayer];
+    if (!current) return;
 
-    // Check pass start bonus
-    if (targetIndex < oldPos) {
-      player.money += window.GameConfig.PASS_START_BONUS;
-      this.addLog(`✈️ ${player.name} bay qua Ô Bắt Đầu và nhận bonus +$${window.GameConfig.PASS_START_BONUS}!`);
-    }
+    this.showToast(`🎲 ${current.name} đổ xúc xắc: ${data.total}`);
 
-    this.showToast(`✈️ ${player.name} đã bay tới ${window.boardCells[targetIndex].title}!`);
-    this.addLog(`✈️ ${player.name} trả $${fee} để bay tới ${window.boardCells[targetIndex].title}.`);
-
-    window.BoardModule.renderTokens();
-    this.renderPlayerRail();
-    await this.delay(600);
-
-    const targetCell = window.boardCells[targetIndex];
-    await this.handleCellAction(player, targetCell);
+    await window.AnimationsModule.movePlayerStepByStep(current, data.total, (newPos, passedStart) => {
+      if (passedStart) {
+        current.money += window.GameConfig.PASS_START_BONUS;
+        this.renderPlayerRail();
+      }
+    });
   },
 
-  triggerChanceCard(player) {
-    const chanceEvents = [
-      { text: "Vua ban phần thưởng Hoàng Gia!", amount: 300, type: "good" },
-      { text: "Thương nhân đường xa trao kho báu!", amount: 250, type: "good" },
-      { text: "Giải Đấu Thế Giới trúng mùa!", amount: 200, type: "good" },
-      { text: "Bão bùng hư hại lâu đài cổ!", amount: -150, type: "bad" },
-      { text: "Nộp lệ phí tu sửa tháp cổ!", amount: -200, type: "bad" },
-      { text: "Trả tiền bảo an cho thương đội!", amount: -100, type: "bad" }
-    ];
+  handleCellAction(player) {
+    const cellIndex = player.position;
+    const cell = window.boardCells[cellIndex];
 
-    const event = chanceEvents[Math.floor(Math.random() * chanceEvents.length)];
-    player.money += event.amount;
-
-    const sign = event.amount >= 0 ? "+" : "";
-    this.showToast(`🎡 CƠ HỘI: ${event.text} (${sign}$${event.amount})`);
-    this.addLog(`🎡 ${player.name} rút thẻ Cơ Hội: ${event.text} (${sign}$${event.amount})`);
-    window.AnimationsModule.spawnFloatingMoney(player.position, `${sign}$${event.amount}`, event.amount >= 0 ? "#22ac50" : "#ef4f43");
-
-    this.checkBankruptcy(player);
-    this.renderPlayerRail();
-  },
-
-  openFestivalModal(player) {
-    const ownedProperties = player.properties
-      .map(index => window.boardCells[index])
-      .filter(cell => cell && (cell.type === "property" || cell.type === "beach") && cell.ownerId === player.id);
-
-    if (ownedProperties.length === 0) {
-      this.showToast(`🏆 ${player.name} đến Lễ Hội nhưng chưa sở hữu công trình nào.`);
-      this.addLog(`${player.name} dừng tại Giải Đấu Thế Giới.`);
+    if (!cell) {
       this.nextTurn();
       return;
     }
 
-    const modal = document.querySelector("#propertyModal");
-    if (!modal) return;
+    this.addLog(`${player.name} dừng chân tại ô: ${cell.title}`);
 
-    document.querySelector("#propertyHeaderName").textContent = "TỔ CHỨC GIẢI ĐẤU THẾ GIỚI 🏆";
-    document.querySelector("#propertyName").textContent = "Chọn địa điểm để x5 Tiền Thuê";
-    document.querySelector("#propertyPrice").textContent = "x5 Tiền Thuê";
-    document.querySelector("#propertyRent").textContent = "Thời gian: 3 vòng";
-    document.querySelector("#propertyOwnerText").textContent = "Địa điểm được chọn sẽ x5 tiền thuê trong 3 vòng!";
-    document.querySelector("#propertyImage").textContent = "🏆";
+    if (cell.type === "property" || cell.type === "beach") {
+      if (cell.ownerId === null) {
+        if (player.id === window.myPlayerId || player.isBot) {
+          if (player.isBot) {
+            window.BotModule.decidePropertyPurchase(player, cell);
+          } else {
+            this.openPropertyModal(cell, player);
+          }
+        } else {
+          this.showToast(`⏳ Chờ ${player.name} chọn mua ${cell.title}...`);
+        }
+      } else if (cell.ownerId === player.id) {
+        if (cell.type === "property" && (cell.level || 0) < window.GameConfig.MAX_PROPERTY_LEVEL) {
+          if (player.id === window.myPlayerId || player.isBot) {
+            if (player.isBot) {
+              window.BotModule.decideUpgradeProperty(player, cell);
+            } else {
+              this.openUpgradeModal(cell, player);
+            }
+          }
+        } else {
+          this.nextTurn();
+        }
+      } else {
+        const owner = window.gameState.players.find(p => p.id === cell.ownerId);
+        const rentCost = window.calculateEffectiveRent(cell);
 
-    const actions = document.querySelector(".property-modal-actions");
-    actions.innerHTML = "";
+        if (owner && !owner.bankrupt) {
+          player.money -= rentCost;
+          owner.money += rentCost;
+          this.showToast(`💸 ${player.name} trả $${rentCost} tiền thuê cho ${owner.name}`);
+          this.addLog(`💸 ${player.name} trả $${rentCost} tiền thuê cho ${owner.name} tại ${cell.title}`);
+          this.renderPlayerRail();
+          this.checkBankruptcy(player);
+        }
+        setTimeout(() => this.nextTurn(), 1400);
+      }
+    } else if (cell.type === "tax") {
+      const playerAssets = player.money + (player.properties || []).reduce((sum, idx) => {
+        const c = window.boardCells[idx];
+        return sum + (c ? c.cost : 0);
+      }, 0);
+      const taxAmount = Math.round(playerAssets * window.GameConfig.TAX_PERCENTAGE);
 
-    ownedProperties.forEach(cell => {
-      const btn = document.createElement("button");
-      btn.className = "btn btn-primary";
-      btn.textContent = `${cell.title} (Lv.${cell.level || 0})`;
-      btn.onclick = () => {
-        this.applyFestivalToProperty(player, cell);
-        modal.classList.add("hidden");
-        this.nextTurn();
-      };
-      actions.appendChild(btn);
-    });
+      player.money -= taxAmount;
+      this.showToast(`📜 ${player.name} đóng Thuế Tài Sản 10%: -$${taxAmount}`);
+      this.addLog(`📜 ${player.name} đóng -$${taxAmount} tiền Thuế Tài Sản`);
+      this.renderPlayerRail();
+      this.checkBankruptcy(player);
+      setTimeout(() => this.nextTurn(), 1400);
 
-    modal.classList.remove("hidden");
+    } else if (cell.type === "world_tour") {
+      this.showToast(`✈️ ${player.name} đến CHUYẾN ĐI VÒNG QUANH THẾ GIỚI!`);
+      if (player.id === window.myPlayerId || player.isBot) {
+        if (player.isBot) {
+          window.BotModule.decideWorldTour(player);
+        } else {
+          this.openWorldTourModal(player);
+        }
+      } else {
+        setTimeout(() => this.nextTurn(), 1500);
+      }
+
+    } else if (cell.type === "festival") {
+      this.showToast(`🏆 ${player.name} mở GIẢI ĐẤU THẾ GIỚI!`);
+      if (player.id === window.myPlayerId || player.isBot) {
+        if (player.isBot) {
+          window.BotModule.decideFestival(player);
+        } else {
+          this.openFestivalModal(player);
+        }
+      } else {
+        setTimeout(() => this.nextTurn(), 1500);
+      }
+
+    } else if (cell.type === "chance") {
+      window.gameState.stats.chanceDrawn++;
+      const cards = [
+        { text: "🎁 Trúng thưởng xổ số! Nhận +$150", money: 150 },
+        { text: "💸 Sửa chữa lâu đài: Trả -$100", money: -100 },
+        { text: "🎉 Tổ chức lễ hội: Nhận +$200", money: 200 }
+      ];
+      const card = cards[Math.floor(Math.random() * cards.length)];
+      player.money += card.money;
+      this.showToast(card.text);
+      this.addLog(`🎡 ${player.name} rút Cơ Hội: ${card.text}`);
+      this.renderPlayerRail();
+      this.checkBankruptcy(player);
+      setTimeout(() => this.nextTurn(), 1400);
+
+    } else {
+      setTimeout(() => this.nextTurn(), 800);
+    }
   },
 
-  applyFestivalToProperty(player, cell) {
-    cell.festivalUntil = window.gameState.round + window.GameConfig.FESTIVAL_DURATION_ROUNDS - 1;
-    this.showToast(`🏆 LỄ HỘI: ${cell.title} x5 TIỀN THUÊ TRONG 3 VÒNG!`);
-    this.addLog(`🏆 ${player.name} tổ chức Giải Đấu tại ${cell.title}. Tiền thuê x5!`);
-    window.AnimationsModule.animateFestivalGlow(cell.id);
-    window.BoardModule.renderBoard();
-  },
-
-  openPropertyModal(cell, mode = "buy") {
-    const player = window.gameState.players[window.gameState.currentPlayer];
+  openPropertyModal(cell, player) {
     const modal = document.querySelector("#propertyModal");
     if (!modal) return;
 
     document.querySelector("#propertyHeaderName").textContent = cell.title.toUpperCase();
     document.querySelector("#propertyName").textContent = cell.title;
-    
-    let icon = cell.type === "beach" ? "🏖️" : "🏰";
-    document.querySelector("#propertyImage").textContent = icon;
+    document.querySelector("#propertyPrice").textContent = `$${cell.cost}`;
+    document.querySelector("#propertyRent").textContent = `$${cell.rent}`;
+    document.querySelector("#propertyOwnerText").textContent = "Chưa có chủ sở hữu";
 
-    const actions = document.querySelector(".property-modal-actions");
-    actions.innerHTML = "";
+    const buyBtn = document.querySelector("#buyPropertyBtn");
+    const skipBtn = document.querySelector("#skipPropertyBtn");
 
-    if (mode === "buy") {
-      document.querySelector("#propertyPrice").textContent = `$${cell.cost}`;
-      document.querySelector("#propertyRent").textContent = `$${cell.rent}`;
-      document.querySelector("#propertyOwnerText").textContent = "Chưa có chủ sở hữu. Bạn có muốn mua?";
+    buyBtn.onclick = () => {
+      this.buyProperty(player, cell);
+      modal.classList.add("hidden");
+    };
 
-      const buyBtn = document.createElement("button");
-      buyBtn.className = "btn btn-success";
-      buyBtn.textContent = `Mua ($${cell.cost})`;
-      buyBtn.disabled = player.money < cell.cost;
-      buyBtn.onclick = () => {
-        this.buyProperty(player, cell);
-        modal.classList.add("hidden");
-        this.nextTurn();
-      };
-
-      const skipBtn = document.createElement("button");
-      skipBtn.className = "btn btn-danger";
-      skipBtn.textContent = "Bỏ qua";
-      skipBtn.onclick = () => {
-        modal.classList.add("hidden");
-        this.addLog(`${player.name} bỏ qua ${cell.title}.`);
-        this.nextTurn();
-      };
-
-      actions.appendChild(buyBtn);
-      actions.appendChild(skipBtn);
-    } else if (mode === "upgrade") {
-      const upgradeCost = window.calculateUpgradeCost(cell);
-      const nextLevel = (cell.level || 0) + 1;
-      const nextRent = Math.round(cell.rent * (1 + nextLevel * 0.7));
-
-      document.querySelector("#propertyPrice").textContent = `Chi phí: $${upgradeCost}`;
-      document.querySelector("#propertyRent").textContent = `Thuê mới: $${nextRent}`;
-      document.querySelector("#propertyOwnerText").textContent = `Nâng cấp ${cell.title} lên Lv.${nextLevel}?`;
-
-      const upgradeBtn = document.createElement("button");
-      upgradeBtn.className = "btn btn-success";
-      upgradeBtn.textContent = `Nâng cấp ($${upgradeCost})`;
-      upgradeBtn.disabled = player.money < upgradeCost;
-      upgradeBtn.onclick = () => {
-        this.upgradeProperty(player, cell);
-        modal.classList.add("hidden");
-        this.nextTurn();
-      };
-
-      const skipBtn = document.createElement("button");
-      skipBtn.className = "btn btn-danger";
-      skipBtn.textContent = "Để sau";
-      skipBtn.onclick = () => {
-        modal.classList.add("hidden");
-        this.nextTurn();
-      };
-
-      actions.appendChild(upgradeBtn);
-      actions.appendChild(skipBtn);
-    }
+    skipBtn.onclick = () => {
+      modal.classList.add("hidden");
+      this.nextTurn();
+    };
 
     modal.classList.remove("hidden");
+  },
+
+  buyProperty(player, cell) {
+    if (player.money >= cell.cost) {
+      player.money -= cell.cost;
+      cell.ownerId = player.id;
+      cell.level = 0;
+      if (!player.properties) player.properties = [];
+      player.properties.push(cell.id);
+
+      window.gameState.stats.propertiesBought++;
+      this.showToast(`🏰 ${player.name} đã mua ${cell.title} với giá $${cell.cost}!`);
+      this.addLog(`🏰 ${player.name} đã sở hữu ${cell.title} ($${cell.cost})`);
+
+      if (window.RoomsModule) {
+        window.RoomsModule.publishCloudMessage({
+          type: "ACTION_BUY_PROPERTY",
+          senderId: window.myPlayerId,
+          playerId: player.id,
+          cellIndex: cell.id,
+          cost: cell.cost,
+          level: 0
+        });
+      }
+
+      window.BoardModule.renderBoard();
+      this.renderPlayerRail();
+
+      if (window.checkBeachMonopolyWin(player)) {
+        this.showToast(`🏆 ${player.name} SỞ HỮU ĐỦ 4 BÃI BIỂN VÀ THẮNG TUYỆT ĐỐI!`);
+        this.addLog(`🏆 ${player.name} sở hữu trọn bộ 4 bãi biển và chiến thắng!`);
+        setTimeout(() => this.showScreen("result"), 1200);
+        return;
+      }
+    }
+    this.nextTurn();
+  },
+
+  applyRemoteBuyProperty(data) {
+    const cell = window.boardCells[data.cellIndex];
+    const player = window.gameState.players.find(p => p.id === data.playerId);
+
+    if (cell && player) {
+      cell.ownerId = player.id;
+      cell.level = data.level || 0;
+      player.money -= (data.cost || 0);
+      if (!player.properties) player.properties = [];
+      if (!player.properties.includes(cell.id)) player.properties.push(cell.id);
+
+      this.showToast(`🏰 ${player.name} đã mua ${cell.title}!`);
+      window.BoardModule.renderBoard();
+      this.renderPlayerRail();
+    }
+  },
+
+  openUpgradeModal(cell, player) {
+    const upgradeCost = window.calculateUpgradeCost(cell);
+    const modal = document.querySelector("#propertyModal");
+    if (!modal) return;
+
+    document.querySelector("#propertyHeaderName").textContent = `NÂNG CẤP: ${cell.title.toUpperCase()}`;
+    document.querySelector("#propertyName").textContent = `${cell.title} (Cấp ${(cell.level || 0) + 1})`;
+    document.querySelector("#propertyPrice").textContent = `$${upgradeCost}`;
+    document.querySelector("#propertyRent").textContent = `$${window.calculateEffectiveRent(cell)}`;
+    document.querySelector("#propertyOwnerText").textContent = `Chủ sở hữu: ${player.name}`;
+
+    const buyBtn = document.querySelector("#buyPropertyBtn");
+    const skipBtn = document.querySelector("#skipPropertyBtn");
+
+    buyBtn.textContent = `Nâng cấp ($${upgradeCost})`;
+    buyBtn.onclick = () => {
+      if (player.money >= upgradeCost) {
+        player.money -= upgradeCost;
+        cell.level = (cell.level || 0) + 1;
+        this.showToast(`🏰 ${player.name} nâng cấp ${cell.title} lên Cấp ${cell.level}!`);
+        window.BoardModule.renderBoard();
+        this.renderPlayerRail();
+      }
+      modal.classList.add("hidden");
+      this.nextTurn();
+    };
+
+    skipBtn.onclick = () => {
+      modal.classList.add("hidden");
+      this.nextTurn();
+    };
+
+    modal.classList.remove("hidden");
+  },
+
+  openWorldTourModal(player) {
+    if (player.money < window.GameConfig.WORLD_TOUR_FEE) {
+      this.showToast(`💸 Không đủ $${window.GameConfig.WORLD_TOUR_FEE} để bay!`);
+      this.nextTurn();
+      return;
+    }
+    const dest = prompt("Nhập số thứ tự ô muốn bay đến (0 - 31):", "7");
+    const targetIdx = parseInt(dest, 10);
+    if (!isNaN(targetIdx) && targetIdx >= 0 && targetIdx < 32) {
+      player.money -= window.GameConfig.WORLD_TOUR_FEE;
+      if (targetIdx < player.position) player.money += window.GameConfig.PASS_START_BONUS;
+      player.position = targetIdx;
+      this.showToast(`✈️ ${player.name} đã bay đến ô số ${targetIdx}!`);
+      window.BoardModule.updatePlayerTokens();
+      this.renderPlayerRail();
+    }
+    this.nextTurn();
+  },
+
+  openFestivalModal(player) {
+    const ownedProperties = (player.properties || []).map(idx => window.boardCells[idx]).filter(Boolean);
+    if (ownedProperties.length === 0) {
+      this.showToast(`⚠️ ${player.name} chưa sở hữu công trình nào để tổ chức Giải Đấu!`);
+      this.nextTurn();
+      return;
+    }
+    const cell = ownedProperties[0];
+    cell.festivalUntil = window.gameState.round + window.GameConfig.FESTIVAL_DURATION_ROUNDS;
+    this.showToast(`🏆 ${cell.title} được chọn làm GIẢI ĐẤU THẾ GIỚI (x5 Tiền thuê)!`);
+    window.BoardModule.renderBoard();
+    this.nextTurn();
   },
 
   checkBankruptcy(player) {
@@ -539,6 +489,7 @@ window.UIModule = {
 
   nextTurn() {
     window.gameState.busy = false;
+    window.gameState.rolling = false;
 
     const activePlayers = window.gameState.players.filter(p => !p.bankrupt);
     if (activePlayers.length <= 1) {
@@ -552,37 +503,49 @@ window.UIModule = {
       nextIdx = (nextIdx + 1) % window.gameState.players.length;
       if (nextIdx === 0) {
         window.gameState.round++;
-        const roundBadge = document.querySelector("#roundBadge");
-        if (roundBadge) roundBadge.textContent = `Vòng ${window.gameState.round}`;
       }
     } while (window.gameState.players[nextIdx].bankrupt);
 
     window.gameState.currentPlayer = nextIdx;
     const current = window.gameState.players[nextIdx];
 
+    if (window.RoomsModule) {
+      window.RoomsModule.publishCloudMessage({
+        type: "ACTION_NEXT_TURN",
+        senderId: window.myPlayerId,
+        nextCurrentPlayer: nextIdx,
+        round: window.gameState.round
+      });
+    }
+
     this.renderPlayerRail();
     if (window.BoardModule) window.BoardModule.updateCameraPerspective();
-
-    const rollBtn = document.querySelector("#rollDiceBtn");
-    if (rollBtn) rollBtn.disabled = current.isBot;
 
     if (current.isBot) {
       window.BotModule.handleBotTurn(current);
     }
   },
 
-  addLog(message) {
-    const logBox = document.querySelector("#activityLog");
-    if (!logBox) return;
-
-    const line = document.createElement("div");
-    line.className = "log-line";
-    line.textContent = message;
-    logBox.prepend(line);
-
-    while (logBox.children.length > 6) {
-      logBox.lastChild.remove();
+  applyRemoteNextTurn(data) {
+    if (data.nextCurrentPlayer !== undefined) {
+      window.gameState.currentPlayer = data.nextCurrentPlayer;
     }
+    if (data.round !== undefined) {
+      window.gameState.round = data.round;
+    }
+
+    this.renderPlayerRail();
+    if (window.BoardModule) window.BoardModule.updateCameraPerspective();
+  },
+
+  addLog(msg) {
+    const log = document.querySelector("#activityLog");
+    if (!log) return;
+    const time = new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const item = document.createElement("div");
+    item.className = "log-item";
+    item.innerHTML = `<span class="log-time">[${time}]</span> ${msg}`;
+    log.prepend(item);
   },
 
   showToast(message) {
@@ -652,62 +615,12 @@ window.UIModule = {
       };
     }
 
-    const leaveBtn = document.querySelector("#leaveRoomBtn");
-    if (leaveBtn) leaveBtn.onclick = () => this.showScreen("lobby");
-
     const rollBtn = document.querySelector("#rollDiceBtn");
     if (rollBtn) {
-      rollBtn.onclick = () => {
-        if (!window.gameState.busy && !window.gameState.rolling) {
-          this.rollDice();
-        }
-      };
+      rollBtn.onclick = () => this.rollDice();
     }
 
-    const cameraBtn = document.querySelector("#cameraLockBtn");
-    if (cameraBtn) cameraBtn.onclick = () => window.BoardModule.toggleCameraLock();
-
-    const playAgainBtn = document.querySelector("#playAgainBtn");
-    if (playAgainBtn) playAgainBtn.onclick = () => this.resetGame();
-
-    const backLobbyBtn = document.querySelector("#backLobbyBtn");
-    if (backLobbyBtn) backLobbyBtn.onclick = () => this.showScreen("lobby");
-
-    const exitBtn = document.querySelector("#exitBtn");
-    if (exitBtn) exitBtn.onclick = () => this.showScreen("lobby");
-  },
-
-  resetGame() {
-    window.gameState.currentPlayer = 0;
-    window.gameState.round = 1;
-    window.gameState.turnCount = 0;
-    window.gameState.busy = false;
-    window.gameState.rolling = false;
-
-    const rollBtn = document.querySelector("#rollDiceBtn");
-    if (rollBtn) rollBtn.disabled = false;
-
-    window.gameState.players.forEach(p => {
-      p.money = window.GameConfig.STARTING_MONEY;
-      p.asset = 0;
-      p.position = 0;
-      p.bankrupt = false;
-      p.doubleRollCount = 0;
-      p.properties = [];
-    });
-
-    window.boardCells.forEach(cell => {
-      cell.ownerId = null;
-      cell.level = 0;
-      cell.festivalUntil = null;
-    });
-
-    this.showScreen("game");
-    window.BoardModule.renderBoard();
-    this.renderPlayerRail();
-  },
-
-  delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    const leaveBtn = document.querySelector("#leaveRoomBtn");
+    if (leaveBtn) leaveBtn.onclick = () => this.showScreen("lobby");
   }
 };
