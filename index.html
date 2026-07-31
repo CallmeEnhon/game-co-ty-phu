@@ -1,96 +1,161 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Game Cờ Tỷ Phú - Monopoly Vietnam Edition</title>
-  <meta name="description" content="Trò chơi Cờ Tỷ Phú phiên bản Việt Nam giao diện web hiện đại và hấp dẫn.">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Prototype giao diện game Cờ Tỷ Phú Công Ty" />
+  <title>Cờ Tỷ Phú Công Ty</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="app-container">
-    <!-- Header -->
-    <header class="game-header">
-      <div class="logo-area">
-        <span class="logo-icon">🎲</span>
-        <h1>CỜ TỶ PHÚ <span class="badge">VIỆT NAM</span></h1>
+  <div id="app">
+    <!-- HEADER -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-logo">🏢</div>
+        <strong>CỜ TỶ PHÚ CÔNG TY</strong>
       </div>
       <div class="header-actions">
-        <button id="btn-new-game" class="btn btn-secondary">🎮 Trò chơi mới</button>
-        <button id="btn-sound" class="btn btn-icon">🔊</button>
+        <button class="icon-button" aria-label="Âm thanh">🔊</button>
+        <button class="icon-button" aria-label="Trợ giúp">❔</button>
+        <button class="icon-button" aria-label="Cài đặt">⚙️</button>
+        <button id="leaveRoomBtn" class="outline-danger hidden">Thoát phòng</button>
       </div>
     </header>
 
-    <!-- Main Content: Board & Controls -->
-    <main class="game-layout">
-      <!-- Monopoly Board -->
-      <div class="board-wrapper">
-        <div id="monopoly-board" class="monopoly-board">
-          <!-- Center Controls & Log inside the board -->
+    <!-- SCREEN: LOBBY -->
+    <main id="lobbyScreen" class="screen lobby-screen active">
+      <div class="lobby-bg-shapes"></div>
+      <section class="lobby-left">
+        <article class="glass-card action-card">
+          <h2>TẠO PHÒNG</h2>
+          <p>Tạo phòng mới và mời bạn bè</p>
+          <button id="createRoomBtn" class="btn btn-success">Tạo phòng</button>
+        </article>
+
+        <article class="glass-card action-card">
+          <h2>VÀO PHÒNG</h2>
+          <p>Nhập mã phòng để tham gia</p>
+          <input id="joinCodeInput" class="room-input" placeholder="Nhập mã phòng" maxlength="8" />
+          <button id="joinRoomBtn" class="btn btn-primary">Vào phòng</button>
+        </article>
+      </section>
+
+      <section class="room-card">
+        <div class="room-card-header">
+          <div>
+            <h1>PHÒNG: <span id="roomCodeLabel">4F7A</span></h1>
+            <p>Chờ người chơi...</p>
+          </div>
+          <button id="copyRoomBtn" class="btn btn-light">📋 Sao chép mã</button>
+        </div>
+
+        <div id="lobbyPlayers" class="lobby-player-list"></div>
+
+        <div class="lobby-bot-controls" style="display:flex; gap:10px; margin-bottom:16px; align-items:center; justify-content:space-between;">
+          <button id="addBotBtn" class="btn btn-light" onclick="window.RoomsModule.addBot()">🤖 Thêm Bot</button>
+          <div class="bot-difficulty-select" style="display:flex; align-items:center; gap:6px; font-size:13px;">
+            <label style="font-weight:700;">Độ khó Bot:</label>
+            <select id="botDiffSelect" onchange="window.RoomsModule.setBotDifficulty(this.value)" style="padding:6px 10px; border-radius:6px; border:1px solid #cbd5e1; outline:none; font-family:inherit;">
+              <option value="easy">Dễ</option>
+              <option value="normal" selected>Vừa</option>
+              <option value="hard">Khó</option>
+            </select>
+          </div>
+        </div>
+
+        <button id="startGameBtn" class="btn btn-success btn-large">Bắt đầu trò chơi</button>
+        <p class="room-hint">Cần ít nhất 2 người chơi để bắt đầu</p>
+      </section>
+    </main>
+
+    <!-- SCREEN: GAME -->
+    <main id="gameScreen" class="screen game-screen">
+      <aside id="playerRail" class="player-rail"></aside>
+
+      <section class="board-stage">
+        <div class="desk-decoration plant">🌿</div>
+        <div class="game-board" id="gameBoard">
           <div class="board-center">
-            <div class="center-brand">
-              <h2>CỜ TỶ PHÚ</h2>
-              <p>Phiên Bản Thương Gia</p>
-            </div>
-            
-            <div class="dice-section">
-              <div class="dice-container">
-                <div id="dice1" class="dice">1</div>
-                <div id="dice2" class="dice">1</div>
+            <div class="turn-widget">
+              <h2>Lượt của: <span id="currentPlayerName">Sếp Lớn</span></h2>
+              <div class="dice-wrap">
+                <div id="diceA" class="dice-face" data-value="3"></div>
+                <div id="diceB" class="dice-face" data-value="4"></div>
               </div>
-              <button id="btn-roll-dice" class="btn btn-primary btn-glow">🎲 Đổ Xí Ngầu</button>
+              <strong id="diceTotal" class="dice-total">Tổng: 7</strong>
+              <button id="rollDiceBtn" class="btn btn-primary btn-roll">Đổ xúc xắc</button>
+              <div id="moveText" class="move-text">Di chuyển 7 ô</div>
             </div>
-
-            <div class="current-turn-info">
-              <span id="turn-indicator">Lượt của: <strong>Người chơi 1</strong></span>
-            </div>
-
-            <div class="game-log-container">
-              <h3>📜 Nhật Ký Trò Chơi</h3>
-              <div id="game-log" class="game-log">
-                <p class="log-item system">🎉 Chào mừng bạn đến với Cờ Tỷ Phú Việt Nam!</p>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Board Tiles generated via JS -->
-        </div>
-      </div>
-
-      <!-- Right Panel: Players & Stats -->
-      <aside class="sidebar-panel">
-        <div class="panel-card players-card">
-          <h3>👥 Bảng Người Chơi</h3>
-          <div id="players-list" class="players-list">
-            <!-- Player Status items -->
           </div>
         </div>
 
-        <div class="panel-card action-card">
-          <h3>⚡ Hành Động</h3>
-          <div class="action-buttons">
-            <button id="btn-buy-property" class="btn btn-success" disabled>🏢 Mua Đất / Nhà</button>
-            <button id="btn-end-turn" class="btn btn-outline" disabled>➡️ Kết Thúc Lượt</button>
-          </div>
+        <div id="gameToast" class="game-toast hidden"></div>
+        <div id="activityLog" class="activity-log"></div>
+      </section>
+    </main>
+
+    <!-- SCREEN: RESULTS -->
+    <main id="resultScreen" class="screen result-screen">
+      <div class="confetti-layer" id="confettiLayer"></div>
+      <section class="result-content">
+        <h1>🏆 KẾT THÚC TRÒ CHƠI!</h1>
+
+        <div class="result-grid">
+          <article class="ranking-card">
+            <div id="rankingList"></div>
+          </article>
+
+          <article class="stats-card">
+            <h2>THỐNG KÊ</h2>
+            <dl>
+              <div><dt>Số lượt xúc xắc</dt><dd id="statDiceRolls">0</dd></div>
+              <div><dt>Tài sản mua</dt><dd id="statProperties">0</dd></div>
+              <div><dt>Cơ hội rút</dt><dd id="statChance">0</dd></div>
+              <div><dt>Số lần phá sản</dt><dd id="statBankrupt">0</dd></div>
+            </dl>
+          </article>
         </div>
-      </aside>
+
+        <div class="result-actions">
+          <button id="playAgainBtn" class="btn btn-primary">Chơi lại</button>
+          <button id="backLobbyBtn" class="btn btn-primary">Về sảnh chờ</button>
+          <button id="exitBtn" class="btn btn-light">Thoát</button>
+        </div>
+      </section>
     </main>
   </div>
 
-  <!-- Modal Event / Purchase -->
-  <div id="modal-overlay" class="modal-overlay hidden">
-    <div class="modal-card">
-      <h3 id="modal-title">Thông Báo</h3>
-      <p id="modal-body">Nội dung thông báo...</p>
-      <div id="modal-actions" class="modal-actions">
-        <button id="btn-modal-close" class="btn btn-primary">Đóng</button>
+  <!-- PROPERTY MODAL -->
+  <div id="propertyModal" class="modal-backdrop hidden">
+    <article class="property-modal">
+      <header class="property-modal-header">
+        Bạn đã dừng ở: <strong id="propertyHeaderName">PHÒNG MARKETING</strong>
+      </header>
+      <div class="property-modal-body">
+        <div id="propertyImage" class="property-image">🖥️</div>
+        <div class="property-copy">
+          <h2 id="propertyName">Phòng Marketing</h2>
+          <p>Giá mua: <strong id="propertyPrice">$200</strong></p>
+          <p>Tiền thuê: <strong id="propertyRent">$30</strong></p>
+          <hr />
+          <p id="propertyOwnerText">Chưa có chủ sở hữu</p>
+        </div>
       </div>
-    </div>
+      <footer class="property-modal-actions">
+        <button id="buyPropertyBtn" class="btn btn-success">Mua ($200)</button>
+        <button id="skipPropertyBtn" class="btn btn-danger">Không mua</button>
+      </footer>
+    </article>
   </div>
 
+  <!-- JS MODULES -->
+  <script src="js/state.js"></script>
+  <script src="js/board.js"></script>
+  <script src="js/rooms.js"></script>
+  <script src="js/bot.js"></script>
+  <script src="js/animations.js"></script>
+  <script src="js/ui.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -1,16 +1,32 @@
-# Game Cờ Tỷ Phú (Monopoly Web Edition)
+# Cờ Tỷ Phú Công Ty — UI Prototype
 
-Dự án trò chơi Cờ Tỷ Phú giao diện Web hiện đại, tương tác trực quan với đồ họa đẹp mắt và hiệu ứng mượt mà.
+Bộ giao diện HTML/CSS/JS thuần để đưa vào Antigravity phát triển tiếp.
 
-## 🚀 Tính năng nổi bật
-- **Giao diện hiện đại**: Thiết kế phong cách Glassmorphism, màu sắc sang trọng, hiệu ứng đổ xí ngầu 3D/mượt mà.
-- **Bàn cờ sống động**: Các ô đất, ô cơ hội, vận khí, tù giam, bến xe, nhà máy được bố trí chuẩn Cờ Tỷ Phú Việt Nam.
-- **Chế độ chơi**: Hỗ trợ 2 - 4 người chơi (hoặc đấu với AI/Bot).
-- **Hệ thống kinh tế**: Mua đất, nâng cấp nhà/khách sạn, thu tiền xâu, trả tiền phạt, thẻ cơ hội.
+## Có sẵn
 
-## 🛠️ Công nghệ sử dụng
-- **HTML5** & **CSS3** (CSS Variables, Flexbox, Grid, Dynamic Animations)
-- **JavaScript ES6+** (Game Engine, State Management)
+- Lobby.
+- Tạo phòng / vào phòng dạng demo.
+- Danh sách người chơi.
+- Bàn cờ đầy đủ.
+- Player HUD.
+- Dice motion.
+- Token hop animation.
+- Popup mua đất.
+- Result screen.
+- Confetti.
+- Responsive cơ bản.
 
-## 📦 Hướng dẫn chạy dự án
-1. Mở file `index.html` trực tiếp trên trình duyệt hoặc sử dụng Live Server.
+## Chạy
+
+Mở `index.html` trực tiếp bằng Chrome hoặc Safari.
+
+## File quan trọng
+
+- `index.html`: cấu trúc UI.
+- `styles.css`: toàn bộ giao diện và motion.
+- `app.js`: demo state, render board và tương tác.
+- `ANTIGRAVITY_PROMPT.md`: prompt chi tiết để giao cho Antigravity.
+
+## Lưu ý
+
+Đây là UI prototype. Tạo phòng và multiplayer đang dùng mock state. Antigravity cần nối Firebase hoặc Supabase để biến thành multiplayer thật.
