@@ -1,7 +1,7 @@
 /* =========================================================
    ROOMS MODULE (rooms.js)
    Universal Realtime MQTT Cloud Relay Engine.
-   Guarantees Dynamic Room Code Generation, URL Sync, and Lockstep Sync.
+   Guarantees Dynamic Room Code Generation, URL Sync, Kick Player, and Lockstep Sync.
    ========================================================= */
 
 window.RoomsModule = {
@@ -88,7 +88,6 @@ window.RoomsModule = {
 
       this.joinRoom(cleanCode);
     } else {
-      // Direct load without ?room= parameter -> Create a fresh room automatically with random 4-letter code
       const freshCode = window.generateRandomCode();
       window.gameState.roomCode = freshCode;
       this.isHost = true;
@@ -251,6 +250,13 @@ window.RoomsModule = {
         player.ready = data.ready;
         this.renderLobbyPlayers();
         if (this.isHost) this.broadcastState();
+      }
+    } else if (data.type === "KICKED") {
+      if (String(data.targetId) === String(window.myPlayerId)) {
+        if (window.UIModule) window.UIModule.showToast("⚠️ Bạn đã bị Chủ phòng mời ra khỏi phòng!");
+        setTimeout(() => {
+          window.location.href = window.location.pathname;
+        }, 1200);
       }
     } else if (data.type === "SYNC_STATE") {
       if (data.players && Array.isArray(data.players) && data.players.length > 0) {
@@ -461,7 +467,7 @@ window.RoomsModule = {
               ${player.ready ? '✓ Sẵn sàng' : '⏳ Chưa sẵn sàng'}
             </div>
             ${this.isHost && !player.host ? `
-              <button class="btn-remove-player" onclick="window.RoomsModule.removePlayer(${player.id})" title="Xóa người chơi">✕</button>
+              <button class="btn btn-sm btn-danger" onclick="window.RoomsModule.kickPlayer('${player.id}')" style="padding:4px 8px; font-size:11px; font-weight:700;" title="Đuổi khỏi phòng">👢 Kick</button>
             ` : ''}
           </div>
         </div>
@@ -542,10 +548,19 @@ window.RoomsModule = {
     this.broadcastState();
   },
 
-  removePlayer(playerId) {
-    window.gameState.players = window.gameState.players.filter(p => p.id !== playerId);
-    this.renderLobbyPlayers();
-    this.broadcastState();
+  kickPlayer(playerId) {
+    if (!this.isHost) return;
+
+    const target = window.gameState.players.find(p => p.id === playerId || String(p.id) === String(playerId));
+    if (target) {
+      window.gameState.players = window.gameState.players.filter(p => p.id !== playerId && String(p.id) !== String(playerId));
+
+      this.renderLobbyPlayers();
+      this.publishCloudMessage({ type: "KICKED", targetId: playerId });
+      this.broadcastState();
+
+      if (window.UIModule) window.UIModule.showToast(`👢 Đã đuổi ${target.name} ra khỏi phòng!`);
+    }
   },
 
   setBotDifficulty(difficulty) {
