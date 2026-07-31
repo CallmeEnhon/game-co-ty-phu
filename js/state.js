@@ -1,58 +1,90 @@
 /* =========================================================
    STATE MODULE (state.js)
-   MonoConCard Perfect Square 7x7 Grid Edition
+   MonoConCard - Business Tour Official Map & Rules
    ========================================================= */
 
 window.GameConfig = {
-  STARTING_MONEY: 1500,
-  PASS_START_BONUS: 200,
+  STARTING_MONEY: 2000,
+  PASS_START_BONUS: 300,
+  WORLD_TOUR_FEE: 50,
   FESTIVAL_DURATION_ROUNDS: 3,
-  FESTIVAL_RENT_MULTIPLIER: 2,
-  MAX_PROPERTY_LEVEL: 3
+  FESTIVAL_RENT_MULTIPLIER: 5, // x5 Rent for Festival
+  MAX_PROPERTY_LEVEL: 3,
+  TAX_PERCENTAGE: 0.10 // 10% Tax based on total assets
+};
+
+// Default Room Settings
+window.gameSettings = {
+  beachWinEnabled: true // Toggle 4-Beaches Instant Win
 };
 
 // Initial Player state: Only Player 1 (Host) initially
 window.initialPlayers = [
-  { id: 0, name: "Player 1", avatar: "👑", color: "#f4b21f", money: 1500, asset: 0, host: true, ready: true, position: 0, isBot: false, bankrupt: false, properties: [] }
+  {
+    id: 0,
+    name: "Player 1",
+    avatar: "👑",
+    color: "#f4b21f",
+    money: 2000,
+    asset: 0,
+    host: true,
+    ready: true,
+    position: 0,
+    isBot: false,
+    bankrupt: false,
+    inJail: false,
+    jailTurns: 0,
+    doubleRollCount: 0,
+    properties: []
+  }
 ];
 
+// Official 24 Tiles matching the reference screenshot map layout
 window.boardCells = [
-  { id: 0, title: "Cổng Khải Hoàn", type: "start", icon: "⚜️", subtitle: "Nhận $200" },
-  { id: 1, title: "Thuế Giáo Hội", type: "tax", price: "Trả $150", amount: 150 },
-  { id: 2, title: "Lâu Đài Amboise", type: "property", price: "$220", cost: 220, rent: 35, color: "#e36e64", ownerId: null, level: 0 },
-  { id: 3, title: "Cơ Hội", type: "chance", icon: "🔮" },
-  { id: 4, title: "Cung Điện Chambord", type: "property", price: "$240", cost: 240, rent: 40, color: "#c9a54a", ownerId: null, level: 0 },
-  { id: 5, title: "Thuế Vương Quyền", type: "tax", price: "Trả $100", amount: 100 },
-  { id: 6, title: "Lâu Đài Chenonceau", type: "property", price: "$200", cost: 200, rent: 30, color: "#49a86a", ownerId: null, level: 0 },
-  { id: 7, title: "Chuyến Du Hành", type: "corner", icon: "⛵", subtitle: "Ghé thăm" },
-  { id: 8, title: "Tháp Giuốc-Đan", type: "property", price: "$200", cost: 200, rent: 30, color: "#8c6bb0", ownerId: null, level: 0 },
-  { id: 9, title: "Thánh Đường Chartres", type: "property", price: "$220", cost: 220, rent: 35, color: "#8c6bb0", ownerId: null, level: 0 },
-  { id: 10, title: "Cơ Hội", type: "chance", icon: "🔮" },
-  { id: 11, title: "Đấu Trường Gothic", type: "corner", icon: "🛡️" },
-  { id: 12, title: "Thánh Đường Rouen", type: "property", price: "$200", cost: 200, rent: 30, color: "#efc42b", ownerId: null, level: 0 },
-  { id: 13, title: "Đức Bà Paris", type: "property", price: "$200", cost: 200, rent: 30, color: "#efc42b", ownerId: null, level: 0 },
-  { id: 14, title: "Thuế Vận Tải", type: "tax", price: "Trả $200", amount: 200 },
-  { id: 15, title: "Đại Thánh Đường Köln", type: "property", price: "$240", cost: 240, rent: 40, color: "#d8574e", ownerId: null, level: 0 },
-  { id: 16, title: "Cơ Hội", type: "chance", icon: "🔮" },
-  { id: 17, title: "Đại Điện Duomo", type: "property", price: "$220", cost: 220, rent: 35, color: "#3f89d4", ownerId: null, level: 0 },
-  { id: 18, title: "Tháp Giam Cổ", type: "corner", icon: "⛓️", subtitle: "Tạm giam" },
-  { id: 19, title: "Cơ Hội", type: "chance", icon: "🔮" },
-  { id: 20, title: "Cung Điện Tổng Trấn", type: "property", price: "$200", cost: 200, rent: 30, color: "#5c9a6b", ownerId: null, level: 0 },
-  { id: 21, title: "Cơ Hội", type: "chance", icon: "🔮" },
-  { id: 22, title: "Lễ Hội Hoàng Gia", type: "festival", icon: "👑", subtitle: "x2 Tiền Thuê" },
-  { id: 23, title: "Cơ Hội", type: "chance", icon: "🔮" }
+  { id: 0, title: "BẮT ĐẦU", type: "start", icon: "🚩", subtitle: "Nhận +$300" },
+  { id: 1, title: "Moskva", type: "property", price: "$120", cost: 120, rent: 20, color: "#f78da7", group: "pink", ownerId: null, level: 0 },
+  { id: 2, title: "Thuế Tài Sản", type: "tax", icon: "📜", price: "10% Tài sản", subtitle: "Thuế 10%" },
+  { id: 3, title: "Sochi", type: "property", price: "$140", cost: 140, rent: 25, color: "#f78da7", group: "pink", ownerId: null, level: 0 },
+  { id: 4, title: "Cơ Hội", type: "chance", icon: "🎡" },
+  { id: 5, title: "Lyon", type: "property", price: "$160", cost: 160, rent: 30, color: "#54a0ff", group: "blue", ownerId: null, level: 0 },
+  { id: 6, title: "Paris", type: "property", price: "$180", cost: 180, rent: 35, color: "#54a0ff", group: "blue", ownerId: null, level: 0 },
+  { id: 7, title: "Nice 🏖️", type: "beach", price: "$200", cost: 200, rent: 40, color: "#00d2d3", group: "beach", ownerId: null, level: 0 },
+  { id: 8, title: "CHUYẾN ĐI VÒNG QUANH THẾ GIỚI", type: "world_tour", icon: "✈️", subtitle: "Bay tự do ($50)" },
+  { id: 9, title: "New York", type: "property", price: "$220", cost: 220, rent: 45, color: "#9c88ff", group: "purple", ownerId: null, level: 0 },
+  { id: 10, title: "Las Vegas", type: "property", price: "$240", cost: 240, rent: 50, color: "#9c88ff", group: "purple", ownerId: null, level: 0 },
+  { id: 11, title: "Chicago", type: "property", price: "$260", cost: 260, rent: 55, color: "#9c88ff", group: "purple", ownerId: null, level: 0 },
+  { id: 12, title: "Cơ Hội", type: "chance", icon: "🎡" },
+  { id: 13, title: "Sydney", type: "property", price: "$280", cost: 280, rent: 60, color: "#8395a7", group: "gray", ownerId: null, level: 0 },
+  { id: 14, title: "Dubai", type: "property", price: "$300", cost: 300, rent: 65, color: "#8395a7", group: "gray", ownerId: null, level: 0 },
+  { id: 15, title: "London", type: "property", price: "$320", cost: 320, rent: 70, color: "#8395a7", group: "gray", ownerId: null, level: 0 },
+  { id: 16, title: "GIẢI ĐẤU THẾ GIỚI", type: "festival", icon: "🏆", subtitle: "Lễ hội x5 Thuê" },
+  { id: 17, title: "Berlin", type: "property", price: "$340", cost: 340, rent: 75, color: "#1dd1a1", group: "green", ownerId: null, level: 0 },
+  { id: 18, title: "Hamburg", type: "property", price: "$360", cost: 360, rent: 80, color: "#1dd1a1", group: "green", ownerId: null, level: 0 },
+  { id: 19, title: "Síp (Cyprus) 🏖️", type: "beach", price: "$200", cost: 200, rent: 40, color: "#00d2d3", group: "beach", ownerId: null, level: 0 },
+  { id: 20, title: "Cơ Hội", type: "chance", icon: "🎡" },
+  { id: 21, title: "Roma", type: "property", price: "$380", cost: 380, rent: 85, color: "#c8d6e5", group: "lime", ownerId: null, level: 0 },
+  { id: 22, title: "Milan", type: "property", price: "$400", cost: 400, rent: 90, color: "#c8d6e5", group: "lime", ownerId: null, level: 0 },
+  { id: 23, title: "Venice 🏖️", type: "beach", price: "$200", cost: 200, rent: 40, color: "#00d2d3", group: "beach", ownerId: null, level: 0 },
+  { id: 24, title: "HÒN ĐẢO BỊ LẶNG QUÊN", type: "jail", icon: "🏝️", subtitle: "Mắc kẹt 3 lượt" },
+  { id: 25, title: "Thượng Hải", type: "property", price: "$420", cost: 420, rent: 95, color: "#feca57", group: "white", ownerId: null, level: 0 },
+  { id: 26, title: "Bắc Kinh", type: "property", price: "$440", cost: 440, rent: 100, color: "#feca57", group: "white", ownerId: null, level: 0 },
+  { id: 27, title: "Hồng Kông", type: "property", price: "$460", cost: 460, rent: 105, color: "#feca57", group: "white", ownerId: null, level: 0 },
+  { id: 28, title: "Bali 🏖️", type: "beach", price: "$200", cost: 200, rent: 40, color: "#00d2d3", group: "beach", ownerId: null, level: 0 },
+  { id: 29, title: "Madrid", type: "property", price: "$480", cost: 480, rent: 110, color: "#ff9f43", group: "rich_orange", ownerId: null, level: 0 },
+  { id: 30, title: "Seville", type: "property", price: "$500", cost: 500, rent: 115, color: "#ff9f43", group: "rich_orange", ownerId: null, level: 0 },
+  { id: 31, title: "Granada", type: "property", price: "$520", cost: 520, rent: 120, color: "#ff9f43", group: "rich_orange", ownerId: null, level: 0 }
 ];
 
-// 7x7 Perfect Square Perimeter Positions (24 Tiles)
+// Re-map 32 board cells perimeter on 9x9 grid layout:
+// Bottom Edge: 0 to 8 (Row 9)
+// Right Edge: 8 to 16 (Col 9)
+// Top Edge: 16 to 24 (Row 1)
+// Left Edge: 24 to 31 (Col 1)
 window.gridPositions = [
-  // Bottom Edge (Row 7): Index 0..6 (Col 7 -> 1)
-  [7,7], [7,6], [7,5], [7,4], [7,3], [7,2], [7,1],
-  // Left Edge (Col 1): Index 7..11 (Row 6 -> 2)
-  [6,1], [5,1], [4,1], [3,1], [2,1],
-  // Top Edge (Row 1): Index 12..18 (Col 1 -> 7)
-  [1,1], [1,2], [1,3], [1,4], [1,5], [1,6], [1,7],
-  // Right Edge (Col 7): Index 19..23 (Row 2 -> 6)
-  [2,7], [3,7], [4,7], [5,7], [6,7]
+  [9,9], [9,8], [9,7], [9,6], [9,5], [9,4], [9,3], [9,2], [9,1],
+  [8,1], [7,1], [6,1], [5,1], [4,1], [3,1], [2,1],
+  [1,1], [1,2], [1,3], [1,4], [1,5], [1,6], [1,7], [1,8], [1,9],
+  [2,9], [3,9], [4,9], [5,9], [6,9], [7,9], [8,9]
 ];
 
 window.gameState = {
@@ -75,20 +107,44 @@ window.gameState = {
   }
 };
 
+// Check if player owns all properties in a color group (Monopoly set)
+window.checkColorMonopoly = function(ownerId, groupName) {
+  if (!groupName || groupName === "beach") return false;
+  const groupCells = window.boardCells.filter(c => c.group === groupName);
+  return groupCells.every(c => c.ownerId === ownerId);
+};
+
 window.calculateEffectiveRent = function(cell) {
-  if (cell.type !== "property" || cell.ownerId === null) return 0;
+  if ((cell.type !== "property" && cell.type !== "beach") || cell.ownerId === null) return 0;
   const level = cell.level || 0;
   const baseRent = cell.rent || 30;
-  let rent = Math.round(baseRent * (1 + level * 0.6));
-  
+
+  let multiplier = 1 + level * 0.7;
+
+  // Color set Monopoly bonus (x2 rent if owning full color group)
+  if (cell.group && window.checkColorMonopoly(cell.ownerId, cell.group)) {
+    multiplier *= 2;
+  }
+
+  let rent = Math.round(baseRent * multiplier);
+
+  // Festival x5 Multiplier
   if (cell.festivalUntil && cell.festivalUntil >= window.gameState.round) {
     rent *= window.GameConfig.FESTIVAL_RENT_MULTIPLIER;
   }
+
   return rent;
 };
 
 window.calculateUpgradeCost = function(cell) {
-  if (cell.type !== "property") return 0;
+  if (cell.type !== "property" && cell.type !== "beach") return 0;
   const level = cell.level || 0;
-  return Math.round(cell.cost * 0.5 * (1 + level * 0.4));
+  return Math.round(cell.cost * 0.6 * (1 + level * 0.5));
+};
+
+// Check Instant 4-Beaches Win condition
+window.checkBeachMonopolyWin = function(player) {
+  if (!window.gameSettings.beachWinEnabled) return false;
+  const ownedBeaches = window.boardCells.filter(c => c.type === "beach" && c.ownerId === player.id);
+  return ownedBeaches.length >= 4;
 };

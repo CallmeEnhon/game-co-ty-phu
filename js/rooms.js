@@ -406,5 +406,11 @@ window.RoomsModule = {
     window.gameState.botDifficulty = difficulty;
     if (window.UIModule) window.UIModule.showToast(`Đã chọn độ khó Bot: ${difficulty.toUpperCase()}`);
     this.broadcastState();
+  },
+
+  setBeachWinSetting(enabled) {
+    window.gameSettings.beachWinEnabled = enabled;
+    if (window.UIModule) window.UIModule.showToast(`Luật 4 Bãi Biển Thắng: ${enabled ? "BẬT 🏖️" : "TẮT ❌"}`);
+    this.broadcastState();
   }
 };

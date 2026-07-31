@@ -55,18 +55,24 @@
 
         <div id="lobbyPlayers" class="lobby-player-list"></div>
 
-        <div class="lobby-bot-controls" style="display:flex; gap:10px; margin-bottom:16px; align-items:center; justify-content:space-between;">
+        <div class="lobby-bot-controls" style="display:flex; gap:10px; margin-bottom:16px; align-items:center; justify-content:space-between; flex-wrap:wrap;">
           <div style="display:flex; gap:8px;">
             <button id="addBotBtn" class="btn btn-light" onclick="window.RoomsModule.addBot()">🤖 Thêm Bot</button>
             <button id="addPlayerBtn" class="btn btn-light" onclick="window.RoomsModule.addHumanPlayer()">👤 Thêm Người</button>
           </div>
-          <div class="bot-difficulty-select" style="display:flex; align-items:center; gap:6px; font-size:13px;">
-            <label style="font-weight:700; color:var(--gothic-gold);">Độ khó Bot:</label>
-            <select id="botDiffSelect" onchange="window.RoomsModule.setBotDifficulty(this.value)" style="padding:6px 10px; border-radius:6px; border:1px solid rgba(244, 196, 83, 0.4); background:rgba(4, 15, 27, 0.8); color:white; outline:none; font-family:inherit;">
-              <option value="easy">Dễ</option>
-              <option value="normal" selected>Vừa</option>
-              <option value="hard">Khó</option>
-            </select>
+          <div style="display:flex; gap:12px; align-items:center; font-size:13px;">
+            <label style="display:flex; align-items:center; gap:5px; font-weight:700; color:var(--gothic-gold); cursor:pointer;">
+              <input type="checkbox" id="beachWinCheck" checked onchange="window.RoomsModule.setBeachWinSetting(this.checked)" style="accent-color:var(--gothic-gold);" />
+              🏖️ 4 Bãi Biển Thắng
+            </label>
+            <div class="bot-difficulty-select" style="display:flex; align-items:center; gap:6px;">
+              <label style="font-weight:700; color:var(--gothic-gold);">Độ khó Bot:</label>
+              <select id="botDiffSelect" onchange="window.RoomsModule.setBotDifficulty(this.value)" style="padding:6px 10px; border-radius:6px; border:1px solid rgba(244, 196, 83, 0.4); background:rgba(4, 15, 27, 0.8); color:white; outline:none; font-family:inherit;">
+                <option value="easy">Dễ</option>
+                <option value="normal" selected>Vừa</option>
+                <option value="hard">Khó</option>
+              </select>
+            </div>
           </div>
         </div>
 

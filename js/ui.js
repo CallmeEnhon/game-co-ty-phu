@@ -1,6 +1,8 @@
 /* =========================================================
    UI MODULE (ui.js)
-   MonoConCard Edition with Perspective Camera Support
+   MonoConCard Official Business Tour Edition
+   Supports 4-Beaches Instant Win, 3-Doubles Jail,
+   World Tour Flight Modal, 10% Asset Tax & x5 Festival.
    ========================================================= */
 
 window.UIModule = {
@@ -33,6 +35,8 @@ window.UIModule = {
     container.innerHTML = window.gameState.players.map((player, index) => {
       const isActive = index === window.gameState.currentPlayer && !player.bankrupt;
       const isBankrupt = player.bankrupt;
+      const ownedBeaches = window.boardCells.filter(c => c.type === "beach" && c.ownerId === player.id).length;
+
       return `
         <article class="player-hud ${isActive ? "active" : ""} ${isBankrupt ? "bankrupt" : ""}" style="--player-color:${player.color}">
           <div class="player-hud-top">
@@ -47,7 +51,9 @@ window.UIModule = {
             </div>
           </div>
           <div class="player-hud-asset">
-            ${isBankrupt ? "<span style='color:#ef4f43;font-weight:900;'>PHÁ SẢN</span>" : `Tài sản: $${player.asset.toLocaleString()}`}
+            ${isBankrupt ? "<span style='color:#ef4f43;font-weight:900;'>PHÁ SẢN</span>" : `
+              Tài sản: $${player.asset.toLocaleString()} | 🏖️ ${ownedBeaches}/4
+            `}
           </div>
         </article>
       `;
@@ -113,13 +119,34 @@ window.UIModule = {
     window.gameState.stats.diceRolls++;
 
     const total = result.total;
+    const isDouble = result.valA === result.valB;
+
     const totalEl = document.querySelector("#diceTotal");
     const moveTextEl = document.querySelector("#moveText");
 
-    if (totalEl) totalEl.textContent = `Tổng: ${total}`;
+    if (totalEl) totalEl.textContent = `Tổng: ${total} ${isDouble ? "🎲 ĐÔI!" : ""}`;
     if (moveTextEl) moveTextEl.textContent = `Di chuyển ${total} ô`;
 
-    this.addLog(`${current.name} đổ xúc xắc: ${result.valA} + ${result.valB} = ${total}`);
+    this.addLog(`${current.name} đổ xúc xắc: ${result.valA} + ${result.valB} = ${total} ${isDouble ? "(ĐỔ ĐÔI!)" : ""}`);
+
+    // Rule: 3 consecutive doubles -> Sent to Prison / Lost Island
+    if (isDouble) {
+      current.doubleRollCount = (current.doubleRollCount || 0) + 1;
+      if (current.doubleRollCount >= 3) {
+        current.doubleRollCount = 0;
+        current.position = 24; // Hòn Đảo Bị Lãng Quên tile index
+        current.inJail = true;
+        this.showToast(`🚨 ${current.name} ĐỔ ĐÔI 3 LẦN LIÊN TIẾP! BỊ ĐƯA VÀO ĐẢO BỊ LẶNG QUÊN!`);
+        this.addLog(`🚨 ${current.name} đổ đôi 3 lần liên tiếp và bị giam tại Hòn Đảo Bị Lãng Quên!`);
+        window.BoardModule.renderTokens();
+        await this.delay(1200);
+        window.gameState.rolling = false;
+        this.nextTurn();
+        return;
+      }
+    } else {
+      current.doubleRollCount = 0;
+    }
 
     await window.AnimationsModule.animatePlayerMove(current, total);
     await this.delay(250);
@@ -134,7 +161,7 @@ window.UIModule = {
   },
 
   async handleCellAction(player, cell) {
-    if (cell.type === "property") {
+    if (cell.type === "property" || cell.type === "beach") {
       if (cell.ownerId === null || cell.ownerId === undefined) {
         if (player.isBot) {
           if (window.BotModule.shouldBuyProperty(player, cell)) {
@@ -175,14 +202,25 @@ window.UIModule = {
         this.nextTurn();
       }
     } else if (cell.type === "tax") {
-      const taxAmount = cell.amount || 150;
+      // 10% Asset Tax calculation
+      const totalAssetValue = player.money + player.asset;
+      const taxAmount = Math.max(50, Math.round(totalAssetValue * window.GameConfig.TAX_PERCENTAGE));
       player.money -= taxAmount;
-      this.addLog(`💸 ${player.name} nộp ${cell.title}: $${taxAmount}.`);
+
+      this.addLog(`💸 ${player.name} nộp Thuế Tài Sản (10%): $${taxAmount}.`);
       window.AnimationsModule.spawnFloatingMoney(player.position, `-$${taxAmount}`, "#ef4f43");
       this.checkBankruptcy(player);
       this.renderPlayerRail();
       await this.delay(700);
       this.nextTurn();
+    } else if (cell.type === "world_tour") {
+      if (player.isBot) {
+        // Bot picks valuable unowned property or opponents' property
+        const targetCellIndex = window.BotModule.selectWorldTourDestination(player);
+        await this.flyPlayerToDestination(player, targetCellIndex);
+      } else {
+        this.openWorldTourModal(player);
+      }
     } else if (cell.type === "chance") {
       window.gameState.stats.chanceDrawn++;
       this.triggerChanceCard(player);
@@ -221,6 +259,14 @@ window.UIModule = {
     this.addLog(`🏰 ${player.name} đã sở hữu ${cell.title} ($${cell.cost})!`);
     window.AnimationsModule.spawnFloatingMoney(cell.id, `-$${cell.cost}`, "#ef4f43");
 
+    // Check Instant 4 Beaches Victory condition!
+    if (window.checkBeachMonopolyWin(player)) {
+      this.showToast(`🏖️ ${player.name} ĐÃ SỞ HỮU CẢ 4 BÃI BIỂN! THẮNG TUYỆT ĐỐI!`);
+      this.addLog(`🏆 ${player.name} sở hữu cả 4 bãi biển Nice, Síp, Venice, Bali và GIÀNH CHIẾN THẮNG!`);
+      setTimeout(() => this.showScreen("result"), 1200);
+      return true;
+    }
+
     this.renderPlayerRail();
     window.BoardModule.renderBoard();
     return true;
@@ -255,11 +301,82 @@ window.UIModule = {
     this.renderPlayerRail();
   },
 
+  openWorldTourModal(player) {
+    const modal = document.querySelector("#propertyModal");
+    if (!modal) return;
+
+    document.querySelector("#propertyHeaderName").textContent = "CHUYẾN ĐI VÒNG QUANH THẾ GIỚI ✈️";
+    document.querySelector("#propertyName").textContent = "Bay tự do tới bất kỳ ô nào";
+    document.querySelector("#propertyPrice").textContent = "Lệ phí bay: $50";
+    document.querySelector("#propertyRent").textContent = "Điểm đến tùy chọn";
+    document.querySelector("#propertyOwnerText").textContent = "Chọn địa điểm bạn muốn hạ cánh ngay lập tức!";
+    document.querySelector("#propertyImage").textContent = "✈️";
+
+    const actions = document.querySelector(".property-modal-actions");
+    actions.innerHTML = "";
+
+    const select = document.createElement("select");
+    select.style.cssText = "width:100%; padding:10px; font-family:inherit; font-size:14px; border-radius:8px; margin-bottom:12px;";
+    window.boardCells.forEach((c, idx) => {
+      const opt = document.createElement("option");
+      opt.value = idx;
+      opt.textContent = `${idx}. ${c.title} (${c.price || c.type.toUpperCase()})`;
+      select.appendChild(opt);
+    });
+    actions.appendChild(select);
+
+    const flyBtn = document.createElement("button");
+    flyBtn.className = "btn btn-primary";
+    flyBtn.textContent = "Bay Ngay ($50)";
+    flyBtn.disabled = player.money < window.GameConfig.WORLD_TOUR_FEE;
+    flyBtn.onclick = async () => {
+      modal.classList.add("hidden");
+      const targetIndex = parseInt(select.value, 10);
+      await this.flyPlayerToDestination(player, targetIndex);
+    };
+
+    const skipBtn = document.createElement("button");
+    skipBtn.className = "btn btn-danger";
+    skipBtn.textContent = "Ở lại";
+    skipBtn.onclick = () => {
+      modal.classList.add("hidden");
+      this.nextTurn();
+    };
+
+    actions.appendChild(flyBtn);
+    actions.appendChild(skipBtn);
+    modal.classList.remove("hidden");
+  },
+
+  async flyPlayerToDestination(player, targetIndex) {
+    const fee = window.GameConfig.WORLD_TOUR_FEE;
+    player.money -= fee;
+
+    const oldPos = player.position;
+    player.position = targetIndex;
+
+    // Check pass start bonus
+    if (targetIndex < oldPos) {
+      player.money += window.GameConfig.PASS_START_BONUS;
+      this.addLog(`✈️ ${player.name} bay qua Ô Bắt Đầu và nhận bonus +$${window.GameConfig.PASS_START_BONUS}!`);
+    }
+
+    this.showToast(`✈️ ${player.name} đã bay tới ${window.boardCells[targetIndex].title}!`);
+    this.addLog(`✈️ ${player.name} trả $${fee} để bay tới ${window.boardCells[targetIndex].title}.`);
+
+    window.BoardModule.renderTokens();
+    this.renderPlayerRail();
+    await this.delay(600);
+
+    const targetCell = window.boardCells[targetIndex];
+    await this.handleCellAction(player, targetCell);
+  },
+
   triggerChanceCard(player) {
     const chanceEvents = [
       { text: "Vua ban phần thưởng Hoàng Gia!", amount: 300, type: "good" },
       { text: "Thương nhân đường xa trao kho báu!", amount: 250, type: "good" },
-      { text: "Lễ hội Hoàng Gia trúng mùa!", amount: 150, type: "good" },
+      { text: "Giải Đấu Thế Giới trúng mùa!", amount: 200, type: "good" },
       { text: "Bão bùng hư hại lâu đài cổ!", amount: -150, type: "bad" },
       { text: "Nộp lệ phí tu sửa tháp cổ!", amount: -200, type: "bad" },
       { text: "Trả tiền bảo an cho thương đội!", amount: -100, type: "bad" }
@@ -269,8 +386,8 @@ window.UIModule = {
     player.money += event.amount;
 
     const sign = event.amount >= 0 ? "+" : "";
-    this.showToast(`🔮 CƠ HỘI: ${event.text} (${sign}$${event.amount})`);
-    this.addLog(`🔮 ${player.name} rút thẻ Cơ Hội: ${event.text} (${sign}$${event.amount})`);
+    this.showToast(`🎡 CƠ HỘI: ${event.text} (${sign}$${event.amount})`);
+    this.addLog(`🎡 ${player.name} rút thẻ Cơ Hội: ${event.text} (${sign}$${event.amount})`);
     window.AnimationsModule.spawnFloatingMoney(player.position, `${sign}$${event.amount}`, event.amount >= 0 ? "#22ac50" : "#ef4f43");
 
     this.checkBankruptcy(player);
@@ -280,11 +397,11 @@ window.UIModule = {
   openFestivalModal(player) {
     const ownedProperties = player.properties
       .map(index => window.boardCells[index])
-      .filter(cell => cell && cell.type === "property" && cell.ownerId === player.id);
+      .filter(cell => cell && (cell.type === "property" || cell.type === "beach") && cell.ownerId === player.id);
 
     if (ownedProperties.length === 0) {
-      this.showToast(`👑 ${player.name} đến Lễ Hội nhưng chưa sở hữu lâu đài nào.`);
-      this.addLog(`${player.name} dừng tại Lễ Hội Hoàng Gia.`);
+      this.showToast(`🏆 ${player.name} đến Lễ Hội nhưng chưa sở hữu công trình nào.`);
+      this.addLog(`${player.name} dừng tại Giải Đấu Thế Giới.`);
       this.nextTurn();
       return;
     }
@@ -292,12 +409,12 @@ window.UIModule = {
     const modal = document.querySelector("#propertyModal");
     if (!modal) return;
 
-    document.querySelector("#propertyHeaderName").textContent = "TỔ CHỨC LỄ HỘI HOÀNG GIA 👑";
-    document.querySelector("#propertyName").textContent = "Chọn lâu đài để x2 Tiền Thuê";
-    document.querySelector("#propertyPrice").textContent = "x2 Tiền Thuê";
+    document.querySelector("#propertyHeaderName").textContent = "TỔ CHỨC GIẢI ĐẤU THẾ GIỚI 🏆";
+    document.querySelector("#propertyName").textContent = "Chọn địa điểm để x5 Tiền Thuê";
+    document.querySelector("#propertyPrice").textContent = "x5 Tiền Thuê";
     document.querySelector("#propertyRent").textContent = "Thời gian: 3 vòng";
-    document.querySelector("#propertyOwnerText").textContent = "Công trình được chọn sẽ x2 tiền thuê trong 3 vòng!";
-    document.querySelector("#propertyImage").textContent = "👑";
+    document.querySelector("#propertyOwnerText").textContent = "Địa điểm được chọn sẽ x5 tiền thuê trong 3 vòng!";
+    document.querySelector("#propertyImage").textContent = "🏆";
 
     const actions = document.querySelector(".property-modal-actions");
     actions.innerHTML = "";
@@ -319,8 +436,8 @@ window.UIModule = {
 
   applyFestivalToProperty(player, cell) {
     cell.festivalUntil = window.gameState.round + window.GameConfig.FESTIVAL_DURATION_ROUNDS - 1;
-    this.showToast(`👑 LỄ HỘI: ${cell.title} x2 TIỀN THUÊ TRONG 3 VÒNG!`);
-    this.addLog(`👑 ${player.name} tổ chức Lễ Hội tại ${cell.title}. Tiền thuê x2!`);
+    this.showToast(`🏆 LỄ HỘI: ${cell.title} x5 TIỀN THUÊ TRONG 3 VÒNG!`);
+    this.addLog(`🏆 ${player.name} tổ chức Giải Đấu tại ${cell.title}. Tiền thuê x5!`);
     window.AnimationsModule.animateFestivalGlow(cell.id);
     window.BoardModule.renderBoard();
   },
@@ -333,12 +450,7 @@ window.UIModule = {
     document.querySelector("#propertyHeaderName").textContent = cell.title.toUpperCase();
     document.querySelector("#propertyName").textContent = cell.title;
     
-    let icon = "🏰";
-    if (cell.title.includes("Thánh Đường") || cell.title.includes("Đức Bà") || cell.title.includes("Chartres") || cell.title.includes("Rouen") || cell.title.includes("Köln")) {
-      icon = "⛪";
-    } else if (cell.title.includes("Cung Điện") || cell.title.includes("Tổng Trấn") || cell.title.includes("Duomo")) {
-      icon = "🏛️";
-    }
+    let icon = cell.type === "beach" ? "🏖️" : "🏰";
     document.querySelector("#propertyImage").textContent = icon;
 
     const actions = document.querySelector(".property-modal-actions");
@@ -373,7 +485,7 @@ window.UIModule = {
     } else if (mode === "upgrade") {
       const upgradeCost = window.calculateUpgradeCost(cell);
       const nextLevel = (cell.level || 0) + 1;
-      const nextRent = Math.round(cell.rent * (1 + nextLevel * 0.6));
+      const nextRent = Math.round(cell.rent * (1 + nextLevel * 0.7));
 
       document.querySelector("#propertyPrice").textContent = `Chi phí: $${upgradeCost}`;
       document.querySelector("#propertyRent").textContent = `Thuê mới: $${nextRent}`;
@@ -468,7 +580,7 @@ window.UIModule = {
     line.textContent = message;
     logBox.prepend(line);
 
-    while (logBox.children.length > 5) {
+    while (logBox.children.length > 6) {
       logBox.lastChild.remove();
     }
   },
@@ -481,7 +593,7 @@ window.UIModule = {
     toast.classList.remove("hidden");
 
     clearTimeout(this.toastTimer);
-    this.toastTimer = setTimeout(() => toast.classList.add("hidden"), 2000);
+    this.toastTimer = setTimeout(() => toast.classList.add("hidden"), 2200);
   },
 
   bindEvents() {
@@ -583,6 +695,7 @@ window.UIModule = {
       p.asset = 0;
       p.position = 0;
       p.bankrupt = false;
+      p.doubleRollCount = 0;
       p.properties = [];
     });
 

@@ -23,9 +23,9 @@ window.BoardModule = {
       element.style.gridRow = coords[0];
       element.style.gridColumn = coords[1];
 
-      // Property color band
+      // Property or Beach color band
       let bandHTML = "";
-      if (cell.color && cell.type === "property") {
+      if (cell.color && (cell.type === "property" || cell.type === "beach")) {
         bandHTML = `<div class="property-band" style="--band-color:${cell.color}"></div>`;
       }
 
@@ -44,11 +44,11 @@ window.BoardModule = {
         levelHTML = `<div class="cell-level-badge">Lv.${cell.level}</div>`;
       }
 
-      // Festival badge & countdown
+      // Festival badge & countdown (x5 Rent)
       let festivalHTML = "";
       if (cell.festivalUntil && cell.festivalUntil >= window.gameState.round) {
         const remainingRounds = cell.festivalUntil - window.gameState.round + 1;
-        festivalHTML = `<div class="cell-festival-badge" title="Đang tổ chức Lễ hội (x2 tiền thuê còn ${remainingRounds} vòng)">👑 ${remainingRounds}v</div>`;
+        festivalHTML = `<div class="cell-festival-badge" title="Đang tổ chức Lễ hội (x5 tiền thuê còn ${remainingRounds} vòng)">🏆 x5 (${remainingRounds}v)</div>`;
       }
 
       element.innerHTML = `
