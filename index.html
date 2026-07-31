@@ -29,13 +29,13 @@
       <section class="lobby-left">
         <article class="glass-card action-card">
           <h2>TẠO PHÒNG HOÀNG GIA</h2>
-          <p>Tạo phòng mới và mời bạn bè tham gia</p>
+          <p>Tạo phòng WiFi / P2P và mời bạn bè tham gia</p>
           <button id="createRoomBtn" class="btn btn-success">Tạo phòng</button>
         </article>
 
         <article class="glass-card action-card">
           <h2>VÀO PHÒNG</h2>
-          <p>Nhập mã phòng để tham gia ván chơi</p>
+          <p>Nhập mã phòng để tham gia ván chơi cùng WiFi</p>
           <input id="joinCodeInput" class="room-input" placeholder="Nhập mã phòng" maxlength="8" />
           <button id="joinRoomBtn" class="btn btn-primary">Vào phòng</button>
         </article>
@@ -45,11 +45,11 @@
         <div class="room-card-header">
           <div>
             <h1>PHÒNG: <span id="roomCodeLabel">4F7A</span></h1>
-            <p id="roomStatusText">Chờ người chơi...</p>
+            <p id="roomStatusText">Chờ kết nối cùng WiFi / Link...</p>
           </div>
           <div style="display:flex; gap:8px;">
             <button id="copyRoomBtn" class="btn btn-light">📋 Mã phòng</button>
-            <button id="copyLinkBtn" class="btn btn-primary" title="Sao chép link gửi cho bạn bè">🔗 Link Mời Bạn</button>
+            <button id="copyLinkBtn" class="btn btn-primary" title="Sao chép link gửi cho bạn bè cùng WiFi">🔗 Link Mời Bạn</button>
           </div>
         </div>
 
@@ -154,7 +154,8 @@
     </article>
   </div>
 
-  <!-- FIREBASE SDKs (Compat) -->
+  <!-- WebRTC P2P & Firebase SDKs -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>

@@ -1,29 +1,28 @@
 /* =========================================================
    ROOMS MODULE (rooms.js)
-   Realtime Sync & Invite Link Support (Firebase & URL Params)
+   P2P WebRTC Local Network (WiFi) & Realtime Synchronization Engine
+   Uses PeerJS for direct device-to-device connection on same WiFi.
    ========================================================= */
 
 window.RoomsModule = {
-  db: null,
-  roomListener: null,
+  peer: null,
+  connections: [],
+  hostConn: null,
+  isHost: false,
+  broadcastChannel: null,
 
   initLobby() {
-    this.initFirebase();
+    this.initBroadcastChannel();
     this.checkUrlInviteCode();
     this.renderLobbyPlayers();
   },
 
-  initFirebase() {
-    if (window.firebase && window.FIREBASE_CONFIG) {
-      try {
-        if (!firebase.apps.length) {
-          firebase.initializeApp(window.FIREBASE_CONFIG);
-        }
-        this.db = firebase.firestore();
-        console.log("Firebase initialized successfully for Realtime Multiplayer.");
-      } catch (err) {
-        console.warn("Firebase initialization error:", err);
-      }
+  initBroadcastChannel() {
+    if ("BroadcastChannel" in window) {
+      this.broadcastChannel = new BroadcastChannel("monoconcard_channel");
+      this.broadcastChannel.onmessage = (event) => {
+        this.handleIncomingP2PMessage(event.data);
+      };
     }
   },
 
@@ -39,8 +38,7 @@ window.RoomsModule = {
       const input = document.querySelector("#joinCodeInput");
       if (input) input.value = cleanCode;
 
-      // Auto join if joining via link
-      this.joinRoom(cleanCode);
+      setTimeout(() => this.joinRoom(cleanCode), 500);
     }
   },
 
@@ -51,6 +49,7 @@ window.RoomsModule = {
       code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     window.gameState.roomCode = code;
+    this.isHost = true;
 
     const hostPlayer = {
       id: Date.now(),
@@ -70,26 +69,178 @@ window.RoomsModule = {
     window.gameState.players = [hostPlayer];
     this.updateUrlWithRoomCode(code);
     this.renderLobbyPlayers();
-    this.syncRoomToCloud();
+    this.startPeerServer(code);
 
     return code;
+  },
+
+  startPeerServer(roomCode) {
+    if (typeof Peer === "undefined") return;
+
+    try {
+      const peerId = `monoconcard-${roomCode}`;
+      if (this.peer) this.peer.destroy();
+
+      this.peer = new Peer(peerId);
+
+      this.peer.on("open", (id) => {
+        console.log("P2P Host Peer Server started:", id);
+        const status = document.querySelector("#roomStatusText");
+        if (status) status.textContent = "🟢 Sẵn sàng nhận kết nối WiFi / P2P...";
+      });
+
+      this.peer.on("connection", (conn) => {
+        this.connections.push(conn);
+
+        conn.on("open", () => {
+          // Send current room state to newly connected P2P client
+          conn.send({
+            type: "SYNC_STATE",
+            players: window.gameState.players,
+            boardCells: window.boardCells,
+            screen: window.gameState.screen,
+            currentPlayer: window.gameState.currentPlayer,
+            round: window.gameState.round
+          });
+        });
+
+        conn.on("data", (data) => {
+          this.handleIncomingP2PMessage(data);
+        });
+
+        conn.on("close", () => {
+          this.connections = this.connections.filter(c => c !== conn);
+        });
+      });
+
+      this.peer.on("error", (err) => {
+        console.warn("P2P Host error (fallback to local):", err);
+      });
+    } catch (e) {
+      console.warn("PeerJS init exception:", e);
+    }
   },
 
   joinRoom(code) {
     window.gameState.roomCode = code;
     this.updateUrlWithRoomCode(code);
+    this.isHost = false;
 
-    // If joining as new player and not yet in list
     const myId = window.myPlayerId || Date.now();
     window.myPlayerId = myId;
 
+    if (typeof Peer !== "undefined") {
+      try {
+        if (this.peer) this.peer.destroy();
+        this.peer = new Peer();
+
+        this.peer.on("open", () => {
+          const hostPeerId = `monoconcard-${code}`;
+          this.hostConn = this.peer.connect(hostPeerId);
+
+          this.hostConn.on("open", () => {
+            console.log("Connected to P2P Host on WiFi:", hostPeerId);
+            const status = document.querySelector("#roomStatusText");
+            if (status) status.textContent = "🟢 Đã kết nối với Chủ phòng!";
+
+            this.hostConn.send({
+              type: "JOIN_REQUEST",
+              id: myId,
+              name: `Player ${window.gameState.players.length + 1}`
+            });
+          });
+
+          this.hostConn.on("data", (data) => {
+            this.handleIncomingP2PMessage(data);
+          });
+        });
+
+        this.peer.on("error", () => {
+          this.addHumanPlayerLocally(myId);
+        });
+      } catch (e) {
+        this.addHumanPlayerLocally(myId);
+      }
+    } else {
+      this.addHumanPlayerLocally(myId);
+    }
+  },
+
+  handleIncomingP2PMessage(data) {
+    if (!data || !data.type) return;
+
+    if (data.type === "JOIN_REQUEST" && this.isHost) {
+      const existing = window.gameState.players.find(p => p.id === data.id);
+      if (!existing && window.gameState.players.length < 4) {
+        const colors = ["#f4b21f", "#36a774", "#438bd4", "#e56376"];
+        const newPlayer = {
+          id: data.id,
+          name: data.name || `Player ${window.gameState.players.length + 1}`,
+          avatar: "👤",
+          color: colors[window.gameState.players.length % colors.length],
+          money: window.GameConfig.STARTING_MONEY,
+          asset: 0,
+          host: false,
+          ready: true,
+          position: 0,
+          isBot: false,
+          bankrupt: false,
+          properties: []
+        };
+        window.gameState.players.push(newPlayer);
+        this.renderLobbyPlayers();
+        this.broadcastState();
+        if (window.UIModule) window.UIModule.showToast(`🟢 ${newPlayer.name} đã gia nhập phòng!`);
+      }
+    } else if (data.type === "SYNC_STATE") {
+      if (data.players) window.gameState.players = data.players;
+      if (data.boardCells) window.boardCells = data.boardCells;
+      if (data.currentPlayer !== undefined) window.gameState.currentPlayer = data.currentPlayer;
+      if (data.round !== undefined) window.gameState.round = data.round;
+
+      if (data.screen && data.screen !== window.gameState.screen) {
+        if (window.UIModule) window.UIModule.showScreen(data.screen);
+      }
+
+      this.renderLobbyPlayers();
+      if (window.BoardModule) window.BoardModule.renderBoard();
+      if (window.UIModule) window.UIModule.renderPlayerRail();
+    } else if (data.type === "ACTION_MOVE" && this.isHost) {
+      // Host receives action from client and re-broadcasts
+      if (data.action === "ROLL") {
+        if (window.UIModule) window.UIModule.rollDice();
+      }
+    }
+  },
+
+  broadcastState() {
+    const payload = {
+      type: "SYNC_STATE",
+      players: window.gameState.players,
+      boardCells: window.boardCells,
+      screen: window.gameState.screen,
+      currentPlayer: window.gameState.currentPlayer,
+      round: window.gameState.round
+    };
+
+    // Send over P2P Data Channels to all connected WiFi devices
+    this.connections.forEach(conn => {
+      if (conn && conn.open) conn.send(payload);
+    });
+
+    // Send over BroadcastChannel for local tabs
+    if (this.broadcastChannel) {
+      this.broadcastChannel.postMessage(payload);
+    }
+  },
+
+  addHumanPlayerLocally(myId) {
     const existing = window.gameState.players.find(p => p.id === myId);
-    if (!existing) {
-      const playerNum = window.gameState.players.filter(p => !p.isBot).length + 1;
+    if (!existing && window.gameState.players.length < 4) {
       const colors = ["#f4b21f", "#36a774", "#438bd4", "#e56376"];
       const newPlayer = {
         id: myId,
-        name: `Player ${playerNum}`,
+        name: `Player ${window.gameState.players.length + 1}`,
         avatar: "👤",
         color: colors[window.gameState.players.length % colors.length],
         money: window.GameConfig.STARTING_MONEY,
@@ -102,11 +253,8 @@ window.RoomsModule = {
         properties: []
       };
       window.gameState.players.push(newPlayer);
+      this.renderLobbyPlayers();
     }
-
-    this.renderLobbyPlayers();
-    this.subscribeToRoomCloud(code);
-    this.syncRoomToCloud();
   },
 
   updateUrlWithRoomCode(code) {
@@ -121,7 +269,7 @@ window.RoomsModule = {
     const inviteUrl = `${window.location.origin}${window.location.pathname}?room=${code}`;
 
     navigator.clipboard?.writeText(inviteUrl).then(() => {
-      if (window.UIModule) window.UIModule.showToast("🔗 Đã sao chép link mời bạn!");
+      if (window.UIModule) window.UIModule.showToast("🔗 Đã sao chép link mời chơi cùng WiFi!");
     }).catch(() => {
       prompt("Sao chép link mời gửi cho bạn bè:", inviteUrl);
     });
@@ -174,7 +322,7 @@ window.RoomsModule = {
         window.UIModule.showToast(`Đã đổi tên thành: ${cleanName}`);
         window.UIModule.renderPlayerRail();
       }
-      this.syncRoomToCloud();
+      this.broadcastState();
     }
   },
 
@@ -210,7 +358,7 @@ window.RoomsModule = {
     window.gameState.players.push(newBot);
     this.renderLobbyPlayers();
     if (window.UIModule) window.UIModule.showToast(`Đã thêm ${newBot.name} vào phòng!`);
-    this.syncRoomToCloud();
+    this.broadcastState();
   },
 
   addHumanPlayer() {
@@ -245,65 +393,18 @@ window.RoomsModule = {
     window.gameState.players.push(newPlayer);
     this.renderLobbyPlayers();
     if (window.UIModule) window.UIModule.showToast(`Đã vào phòng: ${newPlayer.name}!`);
-    this.syncRoomToCloud();
+    this.broadcastState();
   },
 
   removePlayer(playerId) {
     window.gameState.players = window.gameState.players.filter(p => p.id !== playerId);
     this.renderLobbyPlayers();
-    this.syncRoomToCloud();
+    this.broadcastState();
   },
 
   setBotDifficulty(difficulty) {
     window.gameState.botDifficulty = difficulty;
     if (window.UIModule) window.UIModule.showToast(`Đã chọn độ khó Bot: ${difficulty.toUpperCase()}`);
-    this.syncRoomToCloud();
-  },
-
-  // Realtime Cloud Sync Methods
-  syncRoomToCloud() {
-    if (!this.db || !window.gameState.roomCode) return;
-
-    try {
-      const roomRef = this.db.collection("rooms").doc(window.gameState.roomCode);
-      roomRef.set({
-        roomCode: window.gameState.roomCode,
-        screen: window.gameState.screen,
-        currentPlayer: window.gameState.currentPlayer,
-        round: window.gameState.round,
-        players: window.gameState.players,
-        boardCells: window.boardCells,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
-    } catch (err) {
-      console.warn("Error syncing to Firestore:", err);
-    }
-  },
-
-  subscribeToRoomCloud(code) {
-    if (!this.db || !code) return;
-    if (this.roomListener) this.roomListener(); // Unsubscribe existing
-
-    try {
-      this.roomListener = this.db.collection("rooms").doc(code).onSnapshot(doc => {
-        if (doc.exists) {
-          const data = doc.data();
-          if (data.players) window.gameState.players = data.players;
-          if (data.boardCells) window.boardCells = data.boardCells;
-          if (data.currentPlayer !== undefined) window.gameState.currentPlayer = data.currentPlayer;
-          if (data.round !== undefined) window.gameState.round = data.round;
-
-          if (data.screen && data.screen !== window.gameState.screen) {
-            if (window.UIModule) window.UIModule.showScreen(data.screen);
-          }
-
-          this.renderLobbyPlayers();
-          if (window.BoardModule) window.BoardModule.renderBoard();
-          if (window.UIModule) window.UIModule.renderPlayerRail();
-        }
-      });
-    } catch (err) {
-      console.warn("Error subscribing to Firestore room:", err);
-    }
+    this.broadcastState();
   }
 };
