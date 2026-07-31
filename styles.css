@@ -348,8 +348,8 @@ button { cursor: pointer; }
    ========================================================= */
 .game-screen {
   background:
-    radial-gradient(circle at 50% 20%, rgba(244, 196, 83, 0.08), transparent 40%),
-    linear-gradient(180deg, #3d230d 0%, #211206 100%);
+    radial-gradient(circle at 50% 20%, rgba(244, 196, 83, 0.1), rgba(15, 23, 36, 0.82)),
+    url('assets/map-bg.jpg') center/cover no-repeat #120902;
   position: relative;
 }
 
@@ -557,11 +557,12 @@ button { cursor: pointer; }
   place-items: center;
   border-radius: 14px;
   background:
-    radial-gradient(circle at center, rgba(244, 196, 83, 0.1), transparent 50%),
-    linear-gradient(180deg, #0d2238, #071524);
+    radial-gradient(circle at center, rgba(15, 34, 54, 0.55), rgba(7, 18, 30, 0.88)),
+    url('assets/map-bg.jpg') center/cover no-repeat;
   border: 2px solid var(--mahogany-dark);
   pointer-events: auto;
   transform: translateZ(10px);
+  box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.6);
 }
 
 .turn-widget {
