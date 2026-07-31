@@ -1,7 +1,7 @@
 /* =========================================================
    ROOMS MODULE (rooms.js)
    Universal Realtime MQTT Cloud Relay Engine.
-   Guarantees Dynamic Room Code Generation, URL Sync, Kick Player, and Lockstep Sync.
+   Guarantees Dynamic Room Code, Disband Room, Kick Player, and Notifications.
    ========================================================= */
 
 window.RoomsModule = {
@@ -233,10 +233,31 @@ window.RoomsModule = {
         window.gameState.players.push(newPlayer);
         this.renderLobbyPlayers();
         this.broadcastState();
-        if (window.UIModule) window.UIModule.showToast(`🟢 ${newPlayer.name} đã gia nhập phòng!`);
+        if (window.UIModule) {
+          window.UIModule.showToast(`🟢 ${newPlayer.name} đã gia nhập phòng!`);
+          window.UIModule.addLog(`🟢 ${newPlayer.name} đã gia nhập phòng!`);
+        }
       } else {
         this.broadcastState();
       }
+    } else if (data.type === "PLAYER_LEFT") {
+      window.gameState.players = window.gameState.players.filter(p => p.id !== data.playerId && String(p.id) !== String(data.playerId));
+      this.renderLobbyPlayers();
+      if (window.UIModule) {
+        window.UIModule.showToast(`🔴 ${data.name || "Một người chơi"} đã rời khỏi phòng!`);
+        window.UIModule.addLog(`🔴 ${data.name || "Một người chơi"} đã rời khỏi phòng!`);
+        window.UIModule.renderPlayerRail();
+      }
+      if (this.isHost) this.broadcastState();
+
+    } else if (data.type === "ROOM_CLOSED") {
+      if (window.UIModule) {
+        window.UIModule.showToast(`⚠️ Chủ phòng ${data.hostName || ""} đã hủy phòng!`);
+      }
+      setTimeout(() => {
+        window.location.href = window.location.pathname;
+      }, 1200);
+
     } else if (data.type === "UPDATE_NAME") {
       const player = window.gameState.players.find(p => p.id === data.id);
       if (player) {
@@ -316,6 +337,18 @@ window.RoomsModule = {
     };
 
     this.publishCloudMessage(payload);
+  },
+
+  leaveRoom() {
+    const me = window.gameState.players.find(p => p.id === window.myPlayerId);
+    if (this.isHost) {
+      this.publishCloudMessage({ type: "ROOM_CLOSED", hostName: me?.name || "Chủ phòng" });
+    } else {
+      this.publishCloudMessage({ type: "PLAYER_LEFT", playerId: window.myPlayerId, name: me?.name || "Người chơi" });
+    }
+    setTimeout(() => {
+      window.location.href = window.location.pathname;
+    }, 400);
   },
 
   confirmMyName() {
@@ -467,7 +500,7 @@ window.RoomsModule = {
               ${player.ready ? '✓ Sẵn sàng' : '⏳ Chưa sẵn sàng'}
             </div>
             ${this.isHost && !player.host ? `
-              <button class="btn btn-sm btn-danger" onclick="window.RoomsModule.kickPlayer('${player.id}')" style="padding:4px 8px; font-size:11px; font-weight:700;" title="Đuổi khỏi phòng">👢 Kick</button>
+              <button class="btn btn-sm btn-danger" onclick="window.RoomsModule.kickPlayer('${player.id}')" style="padding:4px 8px; font-size:11px; font-weight:700; margin-left:6px;" title="Đuổi khỏi phòng">👢 Kick</button>
             ` : ''}
           </div>
         </div>

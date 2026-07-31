@@ -602,6 +602,10 @@ window.UIModule = {
     }
 
     const leaveBtn = document.querySelector("#leaveRoomBtn");
-    if (leaveBtn) leaveBtn.onclick = () => this.showScreen("lobby");
+    if (leaveBtn) {
+      leaveBtn.onclick = () => {
+        window.RoomsModule.leaveRoom();
+      };
+    }
   }
 };

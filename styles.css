@@ -363,6 +363,67 @@ button { cursor: pointer; }
   z-index: 5;
 }
 
+.player-card {
+  min-height: 95px;
+  padding: 12px 14px;
+  color: white;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(15, 34, 54, 0.96), rgba(7, 18, 30, 0.96));
+  box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+  border: 1px solid rgba(244, 196, 83, 0.25);
+  border-left: 5px solid var(--player-color, var(--gothic-gold));
+  transition: all .25s ease;
+}
+
+.player-card.active-turn {
+  transform: translateX(6px);
+  border-color: var(--gothic-gold);
+  box-shadow: 0 0 15px rgba(244, 196, 83, 0.4), 0 8px 20px rgba(0,0,0,0.6);
+}
+
+.player-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.player-info h3 {
+  font-size: 14px;
+  font-weight: 900;
+  color: #ffffff !important;
+  margin: 0 0 2px 0;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+}
+
+.player-info p {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gothic-gold) !important;
+  margin: 0;
+}
+
+.player-card-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin: 6px 0 0 0;
+  font-size: 11px;
+}
+
+.player-card-stats dt {
+  color: #a0b3c6 !important;
+  font-size: 10px;
+  margin: 0;
+}
+
+.player-card-stats dd {
+  color: #00e676 !important;
+  font-weight: 900;
+  font-size: 13px;
+  margin: 0;
+}
+
 .player-hud {
   min-height: 105px;
   padding: 14px;
