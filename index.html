@@ -7,8 +7,8 @@
   <title>MonoConCard - Business Tour Edition</title>
   
   <script>
-    // AUTO FORCE PURGE BROWSER CACHE & LOCALSTORAGE ON BUILD v3.4.0
-    const CURRENT_BUILD = "v3.4.0";
+    // AUTO FORCE PURGE BROWSER CACHE & LOCALSTORAGE ON BUILD v3.5.0
+    const CURRENT_BUILD = "v3.5.0";
     if (localStorage.getItem("monoconcard_build") !== CURRENT_BUILD) {
       localStorage.clear();
       localStorage.setItem("monoconcard_build", CURRENT_BUILD);
@@ -18,7 +18,7 @@
     }
   </script>
 
-  <link rel="stylesheet" href="styles.css?v=3.4.0" />
+  <link rel="stylesheet" href="styles.css?v=3.5.0" />
 </head>
 <body>
   <!-- MOBILE LANDSCAPE PROMPT OVERLAY -->
@@ -46,8 +46,8 @@
         <strong>MonoConCard</strong>
       </div>
       <div class="header-actions">
-        <button id="rulesBtn" class="btn btn-light" title="Xem chi tiết luật chơi">📜 Luật Chơi</button>
-        <button id="cameraLockBtn" class="btn btn-light" title="Bật/Tắt xoay camera 3D theo lượt người chơi">🔓 Xoay Camera</button>
+        <button id="rulesBtn" class="btn btn-light hidden" title="Xem chi tiết luật chơi">📜 Luật Chơi</button>
+        <button id="cameraLockBtn" class="btn btn-light hidden" title="Bật/Tắt xoay camera 3D theo lượt người chơi">🔓 Xoay Camera</button>
         <button class="icon-button" aria-label="Âm thanh">🔊</button>
         <button class="icon-button" aria-label="Cài đặt">⚙️</button>
         <button id="leaveRoomBtn" class="outline-danger hidden">Thoát phòng</button>
@@ -235,13 +235,13 @@
   <script src="https://unpkg.com/mqtt@5.5.5/dist/mqtt.min.js"></script>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 
-  <!-- JS MODULES (WITH CACHE BUSTERS v3.4.0) -->
-  <script src="js/state.js?v=3.4.0"></script>
-  <script src="js/board.js?v=3.4.0"></script>
-  <script src="js/rooms.js?v=3.4.0"></script>
-  <script src="js/bot.js?v=3.4.0"></script>
-  <script src="js/animations.js?v=3.4.0"></script>
-  <script src="js/ui.js?v=3.4.0"></script>
-  <script src="app.js?v=3.4.0"></script>
+  <!-- JS MODULES (WITH CACHE BUSTERS v3.5.0) -->
+  <script src="js/state.js?v=3.5.0"></script>
+  <script src="js/board.js?v=3.5.0"></script>
+  <script src="js/rooms.js?v=3.5.0"></script>
+  <script src="js/bot.js?v=3.5.0"></script>
+  <script src="js/animations.js?v=3.5.0"></script>
+  <script src="js/ui.js?v=3.5.0"></script>
+  <script src="app.js?v=3.5.0"></script>
 </body>
 </html>

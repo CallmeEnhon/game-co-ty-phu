@@ -1,6 +1,6 @@
 /* =========================================================
-   MONOCONCARD - ULTIMATE ZERO-BUG GAME SYSTEM (styles.css)
-   Strict Screen Scoping, Dual 3D/Flat Camera & Zero Overflow
+   MONOCONCARD - SENIOR DESIGN SYSTEM (styles.css)
+   Strict Screen Scoping, 3D Dice Pips, Dual Camera & Ruby Action Buttons
    ========================================================= */
 
 :root {
@@ -118,6 +118,25 @@ body {
   color: white;
 }
 
+/* PREMIUM RUBY RED LEAVE ROOM BUTTON */
+.outline-danger {
+  background: linear-gradient(180deg, #d32f2f 0%, #9a0007 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid #ef5350 !important;
+  font-weight: 800 !important;
+  font-size: 12px !important;
+  padding: 6px 14px !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(211, 47, 47, 0.4) !important;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.outline-danger:hover {
+  background: linear-gradient(180deg, #e53935 0%, #b71c1c 100%) !important;
+  transform: translateY(-1px);
+}
+
 .icon-button {
   width: 32px;
   height: 32px;
@@ -130,7 +149,7 @@ body {
   place-items: center;
 }
 
-/* STRICT SCREEN SCOPING - GUARANTEES NON-ACTIVE SCREENS ARE 100% HIDDEN */
+/* STRICT SCREEN SCOPING */
 .screen {
   display: none !important;
   flex: 1;
@@ -674,16 +693,71 @@ body {
 .dice-wrap {
   display: flex;
   justify-content: center;
-  gap: 8px;
-  margin: 4px 0;
+  gap: 10px;
+  margin: 6px 0;
 }
 
+/* 100% CRYSTAL CLEAR 3D DICE FACES & HIGH CONTRAST BLACK PIPS */
 .dice-face {
-  width: 36px;
-  height: 36px;
-  background: radial-gradient(circle at 30% 30%, #ffffff, #e0e0e0);
+  width: 38px;
+  height: 38px;
+  background: radial-gradient(circle at 30% 30%, #ffffff 0%, #e0e0e0 100%);
   border-radius: 8px;
-  box-shadow: inset -2px -2px 4px rgba(0,0,0,0.3), 0 4px 10px rgba(0,0,0,0.4);
+  border: 1px solid #b0bec5;
+  box-shadow: inset -2px -2px 4px rgba(0,0,0,0.3), 0 4px 10px rgba(0,0,0,0.5);
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.dice-face::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.dice-face[data-value="1"]::before {
+  background: radial-gradient(circle, #1a0f02 0 4.5px, transparent 5.5px) center/100% 100% no-repeat;
+}
+
+.dice-face[data-value="2"]::before {
+  background:
+    radial-gradient(circle, #1a0f02 0 4px, transparent 5px) 25% 25%/50% 50% no-repeat,
+    radial-gradient(circle, #1a0f02 0 4px, transparent 5px) 75% 75%/50% 50% no-repeat;
+}
+
+.dice-face[data-value="3"]::before {
+  background:
+    radial-gradient(circle, #1a0f02 0 3.8px, transparent 4.8px) 20% 20%/50% 50% no-repeat,
+    radial-gradient(circle, #1a0f02 0 3.8px, transparent 4.8px) center/100% 100% no-repeat,
+    radial-gradient(circle, #1a0f02 0 3.8px, transparent 4.8px) 80% 80%/50% 50% no-repeat;
+}
+
+.dice-face[data-value="4"]::before {
+  background:
+    radial-gradient(circle, #1a0f02 0 3.8px, transparent 4.8px) 22% 22%/45% 45% no-repeat,
+    radial-gradient(circle, #1a0f02 0 3.8px, transparent 4.8px) 78% 22%/45% 45% no-repeat,
+    radial-gradient(circle, #1a0f02 0 3.8px, transparent 4.8px) 22% 78%/45% 45% no-repeat,
+    radial-gradient(circle, #1a0f02 0 3.8px, transparent 4.8px) 78% 78%/45% 45% no-repeat;
+}
+
+.dice-face[data-value="5"]::before {
+  background:
+    radial-gradient(circle, #1a0f02 0 3.6px, transparent 4.6px) 20% 20%/45% 45% no-repeat,
+    radial-gradient(circle, #1a0f02 0 3.6px, transparent 4.6px) 80% 20%/45% 45% no-repeat,
+    radial-gradient(circle, #1a0f02 0 3.6px, transparent 4.6px) center/100% 100% no-repeat,
+    radial-gradient(circle, #1a0f02 0 3.6px, transparent 4.6px) 20% 80%/45% 45% no-repeat,
+    radial-gradient(circle, #1a0f02 0 3.6px, transparent 4.6px) 80% 80%/45% 45% no-repeat;
+}
+
+.dice-face[data-value="6"]::before {
+  background:
+    radial-gradient(circle, #1a0f02 0 3.5px, transparent 4.5px) 22% 18%/42% 38% no-repeat,
+    radial-gradient(circle, #1a0f02 0 3.5px, transparent 4.5px) 78% 18%/42% 38% no-repeat,
+    radial-gradient(circle, #1a0f02 0 3.5px, transparent 4.5px) 22% 50%/42% 38% no-repeat,
+    radial-gradient(circle, #1a0f02 0 3.5px, transparent 4.5px) 78% 50%/42% 38% no-repeat,
+    radial-gradient(circle, #1a0f02 0 3.5px, transparent 4.5px) 22% 82%/42% 38% no-repeat,
+    radial-gradient(circle, #1a0f02 0 3.5px, transparent 4.5px) 78% 82%/42% 38% no-repeat;
 }
 
 .dice-total {

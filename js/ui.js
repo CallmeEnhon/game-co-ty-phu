@@ -9,17 +9,30 @@ window.UIModule = {
   showScreen(screenName) {
     window.gameState.screen = screenName;
 
-    document.querySelectorAll(".screen").forEach(screen => {
+    const screens = document.querySelectorAll(".screen");
+    screens.forEach(screen => {
       screen.classList.remove("active");
+      screen.style.display = "none";
     });
 
     const target = document.querySelector(`#${screenName}Screen`);
-    if (target) target.classList.add("active");
+    if (target) {
+      target.classList.add("active");
+      target.style.display = "flex";
+    }
 
+    const rulesBtn = document.querySelector("#rulesBtn");
+    const cameraLockBtn = document.querySelector("#cameraLockBtn");
     const leaveBtn = document.querySelector("#leaveRoomBtn");
-    if (leaveBtn) {
-      if (screenName === "lobby") leaveBtn.classList.add("hidden");
-      else leaveBtn.classList.remove("hidden");
+
+    if (screenName === "lobby") {
+      if (rulesBtn) rulesBtn.classList.add("hidden");
+      if (cameraLockBtn) cameraLockBtn.classList.add("hidden");
+      if (leaveBtn) leaveBtn.classList.add("hidden");
+    } else if (screenName === "game") {
+      if (rulesBtn) rulesBtn.classList.remove("hidden");
+      if (cameraLockBtn) cameraLockBtn.classList.remove("hidden");
+      if (leaveBtn) leaveBtn.classList.remove("hidden");
     }
 
     if (screenName === "result") {
@@ -523,7 +536,9 @@ window.UIModule = {
 
     const current = window.gameState.players[nextIdx];
     if (current.isBot && window.RoomsModule && window.RoomsModule.isHost) {
-      window.BotModule.handleBotTurn(current);
+      setTimeout(() => {
+        window.BotModule.handleBotTurn(current);
+      }, 600);
     }
   },
 
