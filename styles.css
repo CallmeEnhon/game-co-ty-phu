@@ -962,6 +962,47 @@ button { cursor: pointer; }
   to { transform: translateY(110vh) rotate(760deg); }
 }
 
+/* 3-2-1 Countdown Overlay */
+.countdown-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(9, 19, 29, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 10005;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  color: white;
+}
+
+.countdown-box h2 {
+  font-size: 24px;
+  color: var(--gothic-gold);
+  margin-bottom: 20px;
+  text-shadow: 0 0 15px rgba(244, 196, 83, 0.6);
+}
+
+.countdown-number {
+  font-size: 96px;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 0 0 35px rgba(244, 196, 83, 0.8), 0 0 10px #f4c453;
+  animation: countdownPulse 0.9s cubic-bezier(0.2, 0.9, 0.3, 1) infinite;
+}
+
+@keyframes countdownPulse {
+  0% { transform: scale(1.6); opacity: 0.2; }
+  50% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.8; }
+}
+
+.ready-btn-active {
+  background: #27ae60 !important;
+  border-color: #2ecc71 !important;
+  box-shadow: 0 0 12px rgba(46, 204, 113, 0.6) !important;
+}
+
 @media (max-width: 1050px) {
   .lobby-screen { padding: 28px 20px; }
   .room-card { width: min(650px, 65vw); }

@@ -650,19 +650,7 @@ window.UIModule = {
     const startBtn = document.querySelector("#startGameBtn");
     if (startBtn) {
       startBtn.onclick = () => {
-        window.gameState.busy = false;
-        window.gameState.rolling = false;
-        this.showScreen("game");
-        window.BoardModule.renderBoard();
-        this.renderPlayerRail();
-
-        const rollBtn = document.querySelector("#rollDiceBtn");
-        const firstPlayer = window.gameState.players[window.gameState.currentPlayer];
-        if (rollBtn) rollBtn.disabled = firstPlayer ? firstPlayer.isBot : false;
-
-        if (firstPlayer && firstPlayer.isBot) {
-          window.BotModule.handleBotTurn(firstPlayer);
-        }
+        window.RoomsModule.triggerStartGame();
       };
     }
 

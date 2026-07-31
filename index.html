@@ -17,6 +17,14 @@
     </div>
   </div>
 
+  <!-- 3-2-1 COUNTDOWN OVERLAY -->
+  <div id="countdownOverlay" class="countdown-overlay hidden">
+    <div class="countdown-box">
+      <h2>🚀 BẮT ĐẦU TRÒ CHƠI SAU...</h2>
+      <div id="countdownNumber" class="countdown-number">3</div>
+    </div>
+  </div>
+
   <div id="app">
     <!-- HEADER -->
     <header class="app-header">
@@ -68,6 +76,7 @@
           <div style="display:flex; gap:8px;">
             <button id="addBotBtn" class="btn btn-light" onclick="window.RoomsModule.addBot()">🤖 Thêm Bot</button>
             <button id="addPlayerBtn" class="btn btn-light" onclick="window.RoomsModule.addHumanPlayer()">👤 Thêm Người</button>
+            <button id="toggleReadyBtn" class="btn btn-success" onclick="window.RoomsModule.toggleMyReady()">⚡ Sẵn Sàng</button>
           </div>
           <div style="display:flex; gap:12px; align-items:center; font-size:13px;">
             <label style="display:flex; align-items:center; gap:5px; font-weight:700; color:var(--gothic-gold); cursor:pointer;">
@@ -85,8 +94,8 @@
           </div>
         </div>
 
-        <button id="startGameBtn" class="btn btn-primary btn-large">Bắt đầu trò chơi</button>
-        <p class="room-hint">Cần ít nhất 2 người chơi để bắt đầu</p>
+        <button id="startGameBtn" class="btn btn-primary btn-large" disabled>Bắt đầu trò chơi</button>
+        <p id="roomHintText" class="room-hint">Cần tối thiểu 2 người chơi và tất cả đều Sẵn Sàng (Ready)</p>
       </section>
     </main>
 

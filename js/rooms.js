@@ -1,6 +1,7 @@
 /* =========================================================
    ROOMS MODULE (rooms.js)
-   Realtime P2P Synchronization Engine & Dynamic Room Codes
+   Realtime P2P Synchronization Engine, Ready Status System &
+   3-2-1 Countdown Game Launcher.
    ========================================================= */
 
 window.RoomsModule = {
@@ -23,6 +24,16 @@ window.RoomsModule = {
         this.handleIncomingP2PMessage(event.data);
       };
     }
+
+    // Also fallback to LocalStorage sync events across tabs
+    window.addEventListener("storage", (e) => {
+      if (e.key === "monoconcard_sync_data" && e.newValue) {
+        try {
+          const data = JSON.parse(e.newValue);
+          this.handleIncomingP2PMessage(data);
+        } catch (err) {}
+      }
+    });
   },
 
   checkUrlInviteCode() {
@@ -30,7 +41,6 @@ window.RoomsModule = {
     const roomCode = urlParams.get("room");
 
     if (roomCode) {
-      // Joined via explicit invite link
       const cleanCode = roomCode.trim().toUpperCase();
       window.gameState.roomCode = cleanCode;
       const label = document.querySelector("#roomCodeLabel");
@@ -41,7 +51,6 @@ window.RoomsModule = {
 
       setTimeout(() => this.joinRoom(cleanCode), 400);
     } else {
-      // Direct access to main link: Generate a fresh unique random room code
       const freshCode = window.generateRandomCode();
       window.gameState.roomCode = freshCode;
       this.isHost = true;
@@ -151,11 +160,14 @@ window.RoomsModule = {
             const status = document.querySelector("#roomStatusText");
             if (status) status.textContent = "🟢 Đã kết nối với Chủ phòng!";
 
-            this.hostConn.send({
+            const joinData = {
               type: "JOIN_REQUEST",
               id: myId,
               name: `Player ${window.gameState.players.length + 1}`
-            });
+            };
+
+            this.hostConn.send(joinData);
+            this.broadcastToLocal(joinData);
           });
 
           this.hostConn.on("data", (data) => {
@@ -189,7 +201,7 @@ window.RoomsModule = {
           money: window.GameConfig.STARTING_MONEY,
           asset: 0,
           host: false,
-          ready: true,
+          ready: false, // New guests must click Ready!
           position: 0,
           isBot: false,
           bankrupt: false,
@@ -200,19 +212,28 @@ window.RoomsModule = {
         this.broadcastState();
         if (window.UIModule) window.UIModule.showToast(`🟢 ${newPlayer.name} đã gia nhập phòng!`);
       }
+    } else if (data.type === "TOGGLE_READY") {
+      const player = window.gameState.players.find(p => p.id === data.id);
+      if (player) {
+        player.ready = data.ready;
+        this.renderLobbyPlayers();
+        if (this.isHost) this.broadcastState();
+      }
     } else if (data.type === "SYNC_STATE") {
       if (data.players) window.gameState.players = data.players;
       if (data.boardCells) window.boardCells = data.boardCells;
       if (data.currentPlayer !== undefined) window.gameState.currentPlayer = data.currentPlayer;
       if (data.round !== undefined) window.gameState.round = data.round;
 
-      if (data.screen && data.screen !== window.gameState.screen) {
+      if (data.screen && data.screen !== window.gameState.screen && data.screen !== "game") {
         if (window.UIModule) window.UIModule.showScreen(data.screen);
       }
 
       this.renderLobbyPlayers();
       if (window.BoardModule) window.BoardModule.renderBoard();
       if (window.UIModule) window.UIModule.renderPlayerRail();
+    } else if (data.type === "START_COUNTDOWN") {
+      this.playCountdownAndStart();
     }
   },
 
@@ -230,8 +251,88 @@ window.RoomsModule = {
       if (conn && conn.open) conn.send(payload);
     });
 
+    this.broadcastToLocal(payload);
+  },
+
+  broadcastToLocal(payload) {
     if (this.broadcastChannel) {
       this.broadcastChannel.postMessage(payload);
+    }
+    try {
+      localStorage.setItem("monoconcard_sync_data", JSON.stringify({ ...payload, timestamp: Date.now() }));
+    } catch (e) {}
+  },
+
+  toggleMyReady() {
+    const myId = window.myPlayerId || window.gameState.players[0]?.id;
+    const me = window.gameState.players.find(p => p.id === myId) || window.gameState.players[0];
+
+    if (me) {
+      me.ready = !me.ready;
+      this.renderLobbyPlayers();
+
+      const msg = { type: "TOGGLE_READY", id: me.id, ready: me.ready };
+      if (this.hostConn && this.hostConn.open) this.hostConn.send(msg);
+      this.broadcastState();
+
+      if (window.UIModule) {
+        window.UIModule.showToast(me.ready ? "⚡ BẠN ĐÃ SẴN SÀNG!" : "⏳ BẠN ĐÃ HỦY SẴN SÀNG!");
+      }
+    }
+  },
+
+  triggerStartGame() {
+    if (!this.isHost) {
+      if (window.UIModule) window.UIModule.showToast("Chỉ Chủ phòng mới có quyền bấm Bắt đầu!");
+      return;
+    }
+
+    const payload = { type: "START_COUNTDOWN" };
+    this.connections.forEach(conn => { if (conn && conn.open) conn.send(payload); });
+    this.broadcastToLocal(payload);
+
+    this.playCountdownAndStart();
+  },
+
+  playCountdownAndStart() {
+    const overlay = document.querySelector("#countdownOverlay");
+    const numEl = document.querySelector("#countdownNumber");
+    if (!overlay || !numEl) {
+      this.launchGameScreen();
+      return;
+    }
+
+    overlay.classList.remove("hidden");
+    let count = 3;
+    numEl.textContent = count;
+
+    const timer = setInterval(() => {
+      count--;
+      if (count > 0) {
+        numEl.textContent = count;
+      } else if (count === 0) {
+        numEl.textContent = "BẮT ĐẦU! 🎲";
+      } else {
+        clearInterval(timer);
+        overlay.classList.add("hidden");
+        this.launchGameScreen();
+      }
+    }, 900);
+  },
+
+  launchGameScreen() {
+    if (window.UIModule) {
+      window.UIModule.showScreen("game");
+      window.BoardModule.renderBoard();
+      window.UIModule.renderPlayerRail();
+
+      const firstPlayer = window.gameState.players[window.gameState.currentPlayer];
+      const rollBtn = document.querySelector("#rollDiceBtn");
+      if (rollBtn) rollBtn.disabled = firstPlayer ? firstPlayer.isBot : false;
+
+      if (firstPlayer && firstPlayer.isBot) {
+        window.BotModule.handleBotTurn(firstPlayer);
+      }
     }
   },
 
@@ -298,7 +399,7 @@ window.RoomsModule = {
         </div>
         <div class="lobby-player-actions">
           <div class="${player.ready ? 'ready-tag' : 'wait-tag'}">
-            ${player.ready ? 'Sẵn sàng' : 'Đang chờ'}
+            ${player.ready ? '✓ Sẵn sàng' : '⏳ Chưa sẵn sàng'}
           </div>
           ${!player.host ? `
             <button class="btn-remove-player" onclick="window.RoomsModule.removePlayer(${player.id})" title="Xóa người chơi">✕</button>
@@ -307,10 +408,30 @@ window.RoomsModule = {
       </div>
     `).join("");
 
+    const activePlayers = window.gameState.players.filter(p => !p.bankrupt);
+    const allReady = activePlayers.length >= 2 && activePlayers.every(p => p.ready);
+
     const startBtn = document.querySelector("#startGameBtn");
+    const hintText = document.querySelector("#roomHintText");
+
     if (startBtn) {
-      const activeCount = window.gameState.players.filter(p => !p.bankrupt).length;
-      startBtn.disabled = activeCount < 2;
+      if (!this.isHost) {
+        startBtn.textContent = "⏳ Đang chờ Chủ phòng bắt đầu...";
+        startBtn.disabled = true;
+      } else {
+        startBtn.textContent = "🚀 Bắt đầu trò chơi";
+        startBtn.disabled = !allReady;
+      }
+    }
+
+    if (hintText) {
+      if (activePlayers.length < 2) {
+        hintText.textContent = "Cần ít nhất 2 người chơi để bắt đầu!";
+      } else if (!allReady) {
+        hintText.textContent = "Chờ tất cả người chơi bấm Sẵn Sàng (Ready)!";
+      } else {
+        hintText.textContent = "Tất cả đã sẵn sàng! Chủ phòng có thể bấm Bắt đầu trò chơi!";
+      }
     }
   },
 
@@ -349,7 +470,7 @@ window.RoomsModule = {
       money: window.GameConfig.STARTING_MONEY,
       asset: 0,
       host: false,
-      ready: true,
+      ready: true, // Bots are always ready!
       position: 0,
       isBot: true,
       bankrupt: false,
