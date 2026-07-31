@@ -1,6 +1,7 @@
 /* =========================================================
    BOARD MODULE (board.js)
-   Renders 32-cell Monopoly Perimeter Board and Camera Perspective.
+   Renders 32-cell Monopoly Perimeter Board with 3D Isometric Icons
+   and Smooth Camera Perspective.
    ========================================================= */
 
 window.BoardModule = {
@@ -8,7 +9,6 @@ window.BoardModule = {
     const board = document.querySelector("#gameBoard");
     if (!board) return;
 
-    // Clear cell nodes while preserving center
     const center = board.querySelector(".board-center");
     board.innerHTML = "";
     if (center) board.appendChild(center);
@@ -30,17 +30,22 @@ window.BoardModule = {
 
         content = `
           <div class="color-stripe" style="background:${cell.color}"></div>
-          <div class="cell-title">${cell.title}</div>
-          <div class="cell-price">${cell.price}</div>
+          <div class="cell-body">
+            <div class="cell-icon-3d">${cell.icon || "🏰"}</div>
+            <div class="cell-title">${cell.title}</div>
+            <div class="cell-price">${cell.price}</div>
+          </div>
           ${owner ? `<div class="owner-dot" style="background:${owner.color}" title="Chủ: ${owner.name}"></div>` : ""}
           ${levelBadges ? `<div class="building-level">${levelBadges}</div>` : ""}
           ${cell.festivalUntil && cell.festivalUntil >= window.gameState.round ? '<div class="festival-badge">🏆 x5</div>' : ""}
         `;
       } else {
         content = `
-          <div class="corner-icon">${cell.icon || "🎲"}</div>
-          <div class="cell-title">${cell.title}</div>
-          ${cell.subtitle ? `<div class="cell-subtitle">${cell.subtitle}</div>` : ""}
+          <div class="cell-body">
+            <div class="corner-icon">${cell.icon || "🎲"}</div>
+            <div class="cell-title">${cell.title}</div>
+            ${cell.subtitle ? `<div class="cell-subtitle">${cell.subtitle}</div>` : ""}
+          </div>
         `;
       }
 
@@ -64,7 +69,7 @@ window.BoardModule = {
         if (!tokenEl) {
           tokenEl = document.createElement("div");
           tokenEl.className = `board-token token-p${player.id}`;
-          tokenEl.style.backgroundColor = player.color;
+          tokenEl.style.setProperty("--token-color", player.color);
           tokenEl.textContent = player.avatar || "♟️";
           cellEl.appendChild(tokenEl);
         }
@@ -99,7 +104,7 @@ window.BoardModule = {
       } else {
         lockBtn.classList.remove("locked");
         lockBtn.innerHTML = "🔓 Xoay Camera";
-        if (window.UIModule) window.UIModule.showToast("🔓 Đã mở Xoay Camera theo lượt!");
+        if (window.UIModule) window.UIModule.showToast("🔓 Đã mở Xoay Camera 3D theo lượt!");
       }
     }
   }

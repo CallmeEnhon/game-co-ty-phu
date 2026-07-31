@@ -1,6 +1,6 @@
 /* =========================================================
    STATE MODULE (state.js)
-   MonoConCard - Dynamic Room Code, Identity & Rules
+   MonoConCard - Dynamic Room Code, Identity & 3D Tile Icons
    ========================================================= */
 
 window.GameConfig = {
@@ -55,40 +55,40 @@ window.initialPlayers = [
   }
 ];
 
-// Official 32 Tiles matching Business Tour map layout
+// Official 32 Tiles with Unique 3D Isometric Icons
 window.boardCells = [
   { id: 0, title: "BẮT ĐẦU", type: "start", icon: "🚩", subtitle: "Nhận +$300" },
-  { id: 1, title: "Moskva", type: "property", price: "$120", cost: 120, rent: 20, color: "#f78da7", group: "pink", ownerId: null, level: 0 },
+  { id: 1, title: "Moskva", type: "property", price: "$120", cost: 120, rent: 20, color: "#f78da7", group: "pink", ownerId: null, level: 0, icon: "🏛️" },
   { id: 2, title: "Thuế Tài Sản", type: "tax", icon: "📜", price: "10% Tài sản", subtitle: "Thuế 10%" },
-  { id: 3, title: "Sochi", type: "property", price: "$140", cost: 140, rent: 25, color: "#f78da7", group: "pink", ownerId: null, level: 0 },
+  { id: 3, title: "Sochi", type: "property", price: "$140", cost: 140, rent: 25, color: "#f78da7", group: "pink", ownerId: null, level: 0, icon: "🏔️" },
   { id: 4, title: "Cơ Hội", type: "chance", icon: "🎡" },
-  { id: 5, title: "Lyon", type: "property", price: "$160", cost: 160, rent: 30, color: "#54a0ff", group: "blue", ownerId: null, level: 0 },
-  { id: 6, title: "Paris", type: "property", price: "$180", cost: 180, rent: 35, color: "#54a0ff", group: "blue", ownerId: null, level: 0 },
-  { id: 7, title: "Nice 🏖️", type: "beach", price: "$200", cost: 200, rent: 40, color: "#00d2d3", group: "beach", ownerId: null, level: 0 },
-  { id: 8, title: "CHUYẾN ĐI VÒNG QUANH THẾ GIỚI", type: "world_tour", icon: "✈️", subtitle: "Bay tự do ($50)" },
-  { id: 9, title: "New York", type: "property", price: "$220", cost: 220, rent: 45, color: "#9c88ff", group: "purple", ownerId: null, level: 0 },
-  { id: 10, title: "Las Vegas", type: "property", price: "$240", cost: 240, rent: 50, color: "#9c88ff", group: "purple", ownerId: null, level: 0 },
-  { id: 11, title: "Chicago", type: "property", price: "$260", cost: 260, rent: 55, color: "#9c88ff", group: "purple", ownerId: null, level: 0 },
+  { id: 5, title: "Lyon", type: "property", price: "$160", cost: 160, rent: 30, color: "#54a0ff", group: "blue", ownerId: null, level: 0, icon: "🍇" },
+  { id: 6, title: "Paris", type: "property", price: "$180", cost: 180, rent: 35, color: "#54a0ff", group: "blue", ownerId: null, level: 0, icon: "🗼" },
+  { id: 7, title: "Nice 🏖️", type: "beach", price: "$200", cost: 200, rent: 40, color: "#00d2d3", group: "beach", ownerId: null, level: 0, icon: "🏝️" },
+  { id: 8, title: "VÒNG QUANH THẾ GIỚI", type: "world_tour", icon: "✈️", subtitle: "Bay tự do ($50)" },
+  { id: 9, title: "New York", type: "property", price: "$220", cost: 220, rent: 45, color: "#9c88ff", group: "purple", ownerId: null, level: 0, icon: "🗽" },
+  { id: 10, title: "Las Vegas", type: "property", price: "$240", cost: 240, rent: 50, color: "#9c88ff", group: "purple", ownerId: null, level: 0, icon: "🎰" },
+  { id: 11, title: "Chicago", type: "property", price: "$260", cost: 260, rent: 55, color: "#9c88ff", group: "purple", ownerId: null, level: 0, icon: "🏙️" },
   { id: 12, title: "Cơ Hội", type: "chance", icon: "🎡" },
-  { id: 13, title: "Sydney", type: "property", price: "$280", cost: 280, rent: 60, color: "#8395a7", group: "gray", ownerId: null, level: 0 },
-  { id: 14, title: "Dubai", type: "property", price: "$300", cost: 300, rent: 65, color: "#8395a7", group: "gray", ownerId: null, level: 0 },
-  { id: 15, title: "London", type: "property", price: "$320", cost: 320, rent: 70, color: "#8395a7", group: "gray", ownerId: null, level: 0 },
+  { id: 13, title: "Sydney", type: "property", price: "$280", cost: 280, rent: 60, color: "#8395a7", group: "gray", ownerId: null, level: 0, icon: "🦘" },
+  { id: 14, title: "Dubai", type: "property", price: "$300", cost: 300, rent: 65, color: "#8395a7", group: "gray", ownerId: null, level: 0, icon: "🕌" },
+  { id: 15, title: "London", type: "property", price: "$320", cost: 320, rent: 70, color: "#8395a7", group: "gray", ownerId: null, level: 0, icon: "🏰" },
   { id: 16, title: "GIẢI ĐẤU THẾ GIỚI", type: "festival", icon: "🏆", subtitle: "Lễ hội x5 Thuê" },
-  { id: 17, title: "Berlin", type: "property", price: "$340", cost: 340, rent: 75, color: "#1dd1a1", group: "green", ownerId: null, level: 0 },
-  { id: 18, title: "Hamburg", type: "property", price: "$360", cost: 360, rent: 80, color: "#1dd1a1", group: "green", ownerId: null, level: 0 },
-  { id: 19, title: "Síp (Cyprus) 🏖️", type: "beach", price: "$200", cost: 200, rent: 40, color: "#00d2d3", group: "beach", ownerId: null, level: 0 },
+  { id: 17, title: "Berlin", type: "property", price: "$340", cost: 340, rent: 75, color: "#1dd1a1", group: "green", ownerId: null, level: 0, icon: "🏛️" },
+  { id: 18, title: "Hamburg", type: "property", price: "$360", cost: 360, rent: 80, color: "#1dd1a1", group: "green", ownerId: null, level: 0, icon: "⚓" },
+  { id: 19, title: "Síp (Cyprus) 🏖️", type: "beach", price: "$200", cost: 200, rent: 40, color: "#00d2d3", group: "beach", ownerId: null, level: 0, icon: "🏝️" },
   { id: 20, title: "Cơ Hội", type: "chance", icon: "🎡" },
-  { id: 21, title: "Roma", type: "property", price: "$380", cost: 380, rent: 85, color: "#c8d6e5", group: "lime", ownerId: null, level: 0 },
-  { id: 22, title: "Milan", type: "property", price: "$400", cost: 400, rent: 90, color: "#c8d6e5", group: "lime", ownerId: null, level: 0 },
-  { id: 23, title: "Venice 🏖️", type: "beach", price: "$200", cost: 200, rent: 40, color: "#00d2d3", group: "beach", ownerId: null, level: 0 },
-  { id: 24, title: "HÒN ĐẢO BỊ LẶNG QUÊN", type: "jail", icon: "🏝️", subtitle: "Mắc kẹt 3 lượt" },
-  { id: 25, title: "Thượng Hải", type: "property", price: "$420", cost: 420, rent: 95, color: "#feca57", group: "white", ownerId: null, level: 0 },
-  { id: 26, title: "Bắc Kinh", type: "property", price: "$440", cost: 440, rent: 100, color: "#feca57", group: "white", ownerId: null, level: 0 },
-  { id: 27, title: "Hồng Kông", type: "property", price: "$460", cost: 460, rent: 105, color: "#feca57", group: "white", ownerId: null, level: 0 },
-  { id: 28, title: "Bali 🏖️", type: "beach", price: "$200", cost: 200, rent: 40, color: "#00d2d3", group: "beach", ownerId: null, level: 0 },
-  { id: 29, title: "Madrid", type: "property", price: "$480", cost: 480, rent: 110, color: "#ff9f43", group: "rich_orange", ownerId: null, level: 0 },
-  { id: 30, title: "Seville", type: "property", price: "$500", cost: 500, rent: 115, color: "#ff9f43", group: "rich_orange", ownerId: null, level: 0 },
-  { id: 31, title: "Granada", type: "property", price: "$520", cost: 520, rent: 120, color: "#ff9f43", group: "rich_orange", ownerId: null, level: 0 }
+  { id: 21, title: "Roma", type: "property", price: "$380", cost: 380, rent: 85, color: "#c8d6e5", group: "lime", ownerId: null, level: 0, icon: "🏛️" },
+  { id: 22, title: "Milan", type: "property", price: "$400", cost: 400, rent: 90, color: "#c8d6e5", group: "lime", ownerId: null, level: 0, icon: "👗" },
+  { id: 23, title: "Venice 🏖️", type: "beach", price: "$200", cost: 200, rent: 40, color: "#00d2d3", group: "beach", ownerId: null, level: 0, icon: "🛶" },
+  { id: 24, title: "ĐẢO BỊ LẶNG QUÊN", type: "jail", icon: "🏝️", subtitle: "Mắc kẹt 3 lượt" },
+  { id: 25, title: "Thượng Hải", type: "property", price: "$420", cost: 420, rent: 95, color: "#feca57", group: "white", ownerId: null, level: 0, icon: "🏙️" },
+  { id: 26, title: "Bắc Kinh", type: "property", price: "$440", cost: 440, rent: 100, color: "#feca57", group: "white", ownerId: null, level: 0, icon: "⛩️" },
+  { id: 27, title: "Hồng Kông", type: "property", price: "$460", cost: 460, rent: 105, color: "#feca57", group: "white", ownerId: null, level: 0, icon: "🌃" },
+  { id: 28, title: "Bali 🏖️", type: "beach", price: "$200", cost: 200, rent: 40, color: "#00d2d3", group: "beach", ownerId: null, level: 0, icon: "🏝️" },
+  { id: 29, title: "Madrid", type: "property", price: "$480", cost: 480, rent: 110, color: "#ff9f43", group: "rich_orange", ownerId: null, level: 0, icon: "💃" },
+  { id: 30, title: "Seville", type: "property", price: "$500", cost: 500, rent: 115, color: "#ff9f43", group: "rich_orange", ownerId: null, level: 0, icon: "🏰" },
+  { id: 31, title: "Granada", type: "property", price: "$520", cost: 520, rent: 120, color: "#ff9f43", group: "rich_orange", ownerId: null, level: 0, icon: "🏛️" }
 ];
 
 window.gridPositions = [
