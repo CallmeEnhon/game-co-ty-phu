@@ -29,7 +29,7 @@ window.UIModule = {
   },
 
   renderPlayerRail() {
-    const rail = document.querySelector("#playerRail");
+    const rail = document.querySelector("#playerListContainer") || document.querySelector("#playerRail");
     if (!rail) return;
 
     rail.innerHTML = window.gameState.players.map((player, idx) => {
