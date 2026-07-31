@@ -1,6 +1,6 @@
 /* =========================================================
-   MONOCONCARD - SENIOR DESIGN SYSTEM (styles.css)
-   Zero-Scroll Viewport Fit, Embedded Rail Log & Color Band Combo
+   MONOCONCARD - ULTIMATE ZERO-BUG GAME SYSTEM (styles.css)
+   Clean Screen Scoping, 3D/Flat Camera, Bot Protection & Zero Overflow
    ========================================================= */
 
 :root {
@@ -130,9 +130,9 @@ body {
   place-items: center;
 }
 
-/* SCREENS */
+/* STRICT SCREEN SCOPING - COMPLETELY PREVENTS OVERLAPPING SCREENS */
 .screen {
-  display: none;
+  display: none !important;
   flex: 1;
   width: 100%;
   height: calc(100vh - 48px);
@@ -142,7 +142,7 @@ body {
 }
 
 .screen.active {
-  display: flex;
+  display: flex !important;
 }
 
 /* LOBBY SCREEN */
