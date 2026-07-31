@@ -1,6 +1,6 @@
 /* =========================================================
    STATE MODULE (state.js)
-   MonoConCard - Business Tour Official Map & Rules
+   MonoConCard - Dynamic Room Code & Rules
    ========================================================= */
 
 window.GameConfig = {
@@ -8,20 +8,30 @@ window.GameConfig = {
   PASS_START_BONUS: 300,
   WORLD_TOUR_FEE: 50,
   FESTIVAL_DURATION_ROUNDS: 3,
-  FESTIVAL_RENT_MULTIPLIER: 5, // x5 Rent for Festival
+  FESTIVAL_RENT_MULTIPLIER: 5,
   MAX_PROPERTY_LEVEL: 3,
-  TAX_PERCENTAGE: 0.10 // 10% Tax based on total assets
+  TAX_PERCENTAGE: 0.10
 };
 
 // Default Room Settings
 window.gameSettings = {
-  beachWinEnabled: true // Toggle 4-Beaches Instant Win
+  beachWinEnabled: true
+};
+
+// Helper: Generate Random 4-letter Room Code
+window.generateRandomCode = function() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 4; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
 };
 
 // Initial Player state: Only Player 1 (Host) initially
 window.initialPlayers = [
   {
-    id: 0,
+    id: Date.now(),
     name: "Player 1",
     avatar: "👑",
     color: "#f4b21f",
@@ -39,7 +49,7 @@ window.initialPlayers = [
   }
 ];
 
-// Official 24 Tiles matching the reference screenshot map layout
+// Official 32 Tiles matching Business Tour map layout
 window.boardCells = [
   { id: 0, title: "BẮT ĐẦU", type: "start", icon: "🚩", subtitle: "Nhận +$300" },
   { id: 1, title: "Moskva", type: "property", price: "$120", cost: 120, rent: 20, color: "#f78da7", group: "pink", ownerId: null, level: 0 },
@@ -75,11 +85,6 @@ window.boardCells = [
   { id: 31, title: "Granada", type: "property", price: "$520", cost: 520, rent: 120, color: "#ff9f43", group: "rich_orange", ownerId: null, level: 0 }
 ];
 
-// Re-map 32 board cells perimeter on 9x9 grid layout:
-// Bottom Edge: 0 to 8 (Row 9)
-// Right Edge: 8 to 16 (Col 9)
-// Top Edge: 16 to 24 (Row 1)
-// Left Edge: 24 to 31 (Col 1)
 window.gridPositions = [
   [9,9], [9,8], [9,7], [9,6], [9,5], [9,4], [9,3], [9,2], [9,1],
   [8,1], [7,1], [6,1], [5,1], [4,1], [3,1], [2,1],
@@ -95,7 +100,7 @@ window.gameState = {
   rolling: false,
   busy: false,
   cameraLocked: false,
-  roomCode: "4F7A",
+  roomCode: window.generateRandomCode(),
   botDifficulty: "normal",
   players: JSON.parse(JSON.stringify(window.initialPlayers)),
   stats: {
@@ -107,7 +112,6 @@ window.gameState = {
   }
 };
 
-// Check if player owns all properties in a color group (Monopoly set)
 window.checkColorMonopoly = function(ownerId, groupName) {
   if (!groupName || groupName === "beach") return false;
   const groupCells = window.boardCells.filter(c => c.group === groupName);
@@ -121,14 +125,12 @@ window.calculateEffectiveRent = function(cell) {
 
   let multiplier = 1 + level * 0.7;
 
-  // Color set Monopoly bonus (x2 rent if owning full color group)
   if (cell.group && window.checkColorMonopoly(cell.ownerId, cell.group)) {
     multiplier *= 2;
   }
 
   let rent = Math.round(baseRent * multiplier);
 
-  // Festival x5 Multiplier
   if (cell.festivalUntil && cell.festivalUntil >= window.gameState.round) {
     rent *= window.GameConfig.FESTIVAL_RENT_MULTIPLIER;
   }
@@ -142,7 +144,6 @@ window.calculateUpgradeCost = function(cell) {
   return Math.round(cell.cost * 0.6 * (1 + level * 0.5));
 };
 
-// Check Instant 4-Beaches Win condition
 window.checkBeachMonopolyWin = function(player) {
   if (!window.gameSettings.beachWinEnabled) return false;
   const ownedBeaches = window.boardCells.filter(c => c.type === "beach" && c.ownerId === player.id);

@@ -636,6 +636,17 @@ window.UIModule = {
       };
     }
 
+    const rulesBtn = document.querySelector("#rulesBtn");
+    const rulesModal = document.querySelector("#rulesModal");
+    const closeRulesBtn = document.querySelector("#closeRulesBtn");
+
+    if (rulesBtn && rulesModal) {
+      rulesBtn.onclick = () => rulesModal.classList.remove("hidden");
+    }
+    if (closeRulesBtn && rulesModal) {
+      closeRulesBtn.onclick = () => rulesModal.classList.add("hidden");
+    }
+
     const startBtn = document.querySelector("#startGameBtn");
     if (startBtn) {
       startBtn.onclick = () => {

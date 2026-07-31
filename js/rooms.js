@@ -1,7 +1,6 @@
 /* =========================================================
    ROOMS MODULE (rooms.js)
-   P2P WebRTC Local Network (WiFi) & Realtime Synchronization Engine
-   Uses PeerJS for direct device-to-device connection on same WiFi.
+   Realtime P2P Synchronization Engine & Dynamic Room Codes
    ========================================================= */
 
 window.RoomsModule = {
@@ -29,7 +28,9 @@ window.RoomsModule = {
   checkUrlInviteCode() {
     const urlParams = new URLSearchParams(window.location.search);
     const roomCode = urlParams.get("room");
+
     if (roomCode) {
+      // Joined via explicit invite link
       const cleanCode = roomCode.trim().toUpperCase();
       window.gameState.roomCode = cleanCode;
       const label = document.querySelector("#roomCodeLabel");
@@ -38,17 +39,23 @@ window.RoomsModule = {
       const input = document.querySelector("#joinCodeInput");
       if (input) input.value = cleanCode;
 
-      setTimeout(() => this.joinRoom(cleanCode), 500);
+      setTimeout(() => this.joinRoom(cleanCode), 400);
+    } else {
+      // Direct access to main link: Generate a fresh unique random room code
+      const freshCode = window.generateRandomCode();
+      window.gameState.roomCode = freshCode;
+      this.isHost = true;
+
+      const label = document.querySelector("#roomCodeLabel");
+      if (label) label.textContent = freshCode;
+
+      this.startPeerServer(freshCode);
     }
   },
 
   generateRoomCode() {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    let code = "";
-    for (let i = 0; i < 4; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    window.gameState.roomCode = code;
+    const freshCode = window.generateRandomCode();
+    window.gameState.roomCode = freshCode;
     this.isHost = true;
 
     const hostPlayer = {
@@ -67,11 +74,15 @@ window.RoomsModule = {
     };
 
     window.gameState.players = [hostPlayer];
-    this.updateUrlWithRoomCode(code);
-    this.renderLobbyPlayers();
-    this.startPeerServer(code);
 
-    return code;
+    const label = document.querySelector("#roomCodeLabel");
+    if (label) label.textContent = freshCode;
+
+    this.updateUrlWithRoomCode(freshCode);
+    this.renderLobbyPlayers();
+    this.startPeerServer(freshCode);
+
+    return freshCode;
   },
 
   startPeerServer(roomCode) {
@@ -83,17 +94,15 @@ window.RoomsModule = {
 
       this.peer = new Peer(peerId);
 
-      this.peer.on("open", (id) => {
-        console.log("P2P Host Peer Server started:", id);
+      this.peer.on("open", () => {
         const status = document.querySelector("#roomStatusText");
-        if (status) status.textContent = "🟢 Sẵn sàng nhận kết nối WiFi / P2P...";
+        if (status) status.textContent = "Sẵn sàng • Chờ người chơi...";
       });
 
       this.peer.on("connection", (conn) => {
         this.connections.push(conn);
 
         conn.on("open", () => {
-          // Send current room state to newly connected P2P client
           conn.send({
             type: "SYNC_STATE",
             players: window.gameState.players,
@@ -139,7 +148,6 @@ window.RoomsModule = {
           this.hostConn = this.peer.connect(hostPeerId);
 
           this.hostConn.on("open", () => {
-            console.log("Connected to P2P Host on WiFi:", hostPeerId);
             const status = document.querySelector("#roomStatusText");
             if (status) status.textContent = "🟢 Đã kết nối với Chủ phòng!";
 
@@ -205,11 +213,6 @@ window.RoomsModule = {
       this.renderLobbyPlayers();
       if (window.BoardModule) window.BoardModule.renderBoard();
       if (window.UIModule) window.UIModule.renderPlayerRail();
-    } else if (data.type === "ACTION_MOVE" && this.isHost) {
-      // Host receives action from client and re-broadcasts
-      if (data.action === "ROLL") {
-        if (window.UIModule) window.UIModule.rollDice();
-      }
     }
   },
 
@@ -223,12 +226,10 @@ window.RoomsModule = {
       round: window.gameState.round
     };
 
-    // Send over P2P Data Channels to all connected WiFi devices
     this.connections.forEach(conn => {
       if (conn && conn.open) conn.send(payload);
     });
 
-    // Send over BroadcastChannel for local tabs
     if (this.broadcastChannel) {
       this.broadcastChannel.postMessage(payload);
     }
@@ -269,7 +270,7 @@ window.RoomsModule = {
     const inviteUrl = `${window.location.origin}${window.location.pathname}?room=${code}`;
 
     navigator.clipboard?.writeText(inviteUrl).then(() => {
-      if (window.UIModule) window.UIModule.showToast("🔗 Đã sao chép link mời chơi cùng WiFi!");
+      if (window.UIModule) window.UIModule.showToast("🔗 Đã sao chép link mời chơi!");
     }).catch(() => {
       prompt("Sao chép link mời gửi cho bạn bè:", inviteUrl);
     });

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="description" content="MonoConCard - Dynamic 3D Isometric Monopoly Game" />
-  <title>MonoConCard - Mobile Responsive Edition</title>
+  <title>MonoConCard - Business Tour Edition</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -25,9 +25,9 @@
         <strong>MonoConCard</strong>
       </div>
       <div class="header-actions">
+        <button id="rulesBtn" class="btn btn-light" title="Xem chi tiết luật chơi">📜 Luật Chơi</button>
         <button id="cameraLockBtn" class="btn btn-light" title="Bật/Tắt xoay camera theo lượt người chơi">🔓 Xoay Camera</button>
         <button class="icon-button" aria-label="Âm thanh">🔊</button>
-        <button class="icon-button" aria-label="Trợ giúp">❔</button>
         <button class="icon-button" aria-label="Cài đặt">⚙️</button>
         <button id="leaveRoomBtn" class="outline-danger hidden">Thoát phòng</button>
       </div>
@@ -38,13 +38,13 @@
       <section class="lobby-left">
         <article class="glass-card action-card">
           <h2>TẠO PHÒNG HOÀNG GIA</h2>
-          <p>Tạo phòng WiFi / P2P và mời bạn bè tham gia</p>
+          <p>Tạo phòng mới và mời bạn bè cùng tham gia</p>
           <button id="createRoomBtn" class="btn btn-success">Tạo phòng</button>
         </article>
 
         <article class="glass-card action-card">
           <h2>VÀO PHÒNG</h2>
-          <p>Nhập mã phòng để tham gia ván chơi cùng WiFi</p>
+          <p>Nhập mã phòng để tham gia ván chơi</p>
           <input id="joinCodeInput" class="room-input" placeholder="Nhập mã phòng" maxlength="8" />
           <button id="joinRoomBtn" class="btn btn-primary">Vào phòng</button>
         </article>
@@ -53,12 +53,12 @@
       <section class="room-card">
         <div class="room-card-header">
           <div>
-            <h1>PHÒNG: <span id="roomCodeLabel">4F7A</span></h1>
-            <p id="roomStatusText">Chờ kết nối cùng WiFi / Link...</p>
+            <h1>PHÒNG: <span id="roomCodeLabel">----</span></h1>
+            <p id="roomStatusText">Sẵn sàng • Chờ người chơi...</p>
           </div>
           <div style="display:flex; gap:8px;">
             <button id="copyRoomBtn" class="btn btn-light">📋 Mã phòng</button>
-            <button id="copyLinkBtn" class="btn btn-primary" title="Sao chép link gửi cho bạn bè cùng WiFi">🔗 Link Mời Bạn</button>
+            <button id="copyLinkBtn" class="btn btn-primary" title="Sao chép link gửi cho bạn bè">🔗 Link Mời Bạn</button>
           </div>
         </div>
 
@@ -165,6 +165,41 @@
       <footer class="property-modal-actions">
         <button id="buyPropertyBtn" class="btn btn-success">Mua ($220)</button>
         <button id="skipPropertyBtn" class="btn btn-danger">Không mua</button>
+      </footer>
+    </article>
+  </div>
+
+  <!-- RULES MODAL -->
+  <div id="rulesModal" class="modal-backdrop hidden">
+    <article class="property-modal" style="max-width:560px; text-align:left;">
+      <header class="property-modal-header" style="text-align:center;">
+        📜 HƯỚNG DẪN LUẬT CHƠI MONOCONCARD
+      </header>
+      <div class="property-modal-body" style="display:block; max-height:65vh; overflow-y:auto; font-size:13px; line-height:1.6; color:#d0e0f0;">
+        <h3 style="color:var(--gothic-gold); margin:10px 0 6px;">🎯 1. Mục Tiêu & Thắng Thua</h3>
+        <p>• Làm cho đối thủ Phá Sản hoặc giành chiến thắng đặc biệt.</p>
+
+        <h3 style="color:var(--gothic-gold); margin:14px 0 6px;">🏖️ 2. Luật Thắng 4 Bãi Biển (Bãi Biển Monopoly)</h3>
+        <p>• Sở hữu trọn bộ 4 bãi biển: <strong>Nice, Síp (Cyprus), Venice, Bali</strong> sẽ <strong>THẮNG NGAY LẬP TỨC</strong>!</p>
+        <p>• Có thể Bật/Tắt luật này tại màn hình Sảnh Chờ.</p>
+
+        <h3 style="color:var(--gothic-gold); margin:14px 0 6px;">🚨 3. Đổ Đôi 3 Lần Liên Tiếp (Vào Tù)</h3>
+        <p>• Nếu đổ ra 2 mặt xúc xắc giống nhau 3 lần trong 1 lượt, bạn sẽ bị phạt giam tại <strong>Hòn Đảo Bị Lãng Quên</strong> trong 3 lượt.</p>
+
+        <h3 style="color:var(--gothic-gold); margin:14px 0 6px;">✈️ 4. Chuyến Đi Vòng Quanh Thế Giới (Bay Tự Do)</h3>
+        <p>• Trả $50 lệ phí để chọn <strong>bay đến bất kỳ ô nào</strong> trên bản đồ. Nếu bay băng qua ô Bắt Đầu sẽ được nhận thêm +$300 bonus!</p>
+
+        <h3 style="color:var(--gothic-gold); margin:14px 0 6px;">🏆 5. Lễ Hội / Giải Đấu Thế Giới (x5 Tiền Thuê)</h3>
+        <p>• Đáp vào ô Giải Đấu được chọn 1 công trình của mình để <strong>nhân x5 tiền thuê</strong> trong 3 vòng.</p>
+
+        <h3 style="color:var(--gothic-gold); margin:14px 0 6px;">📜 6. Ô Thuế Tài Sản (10%)</h3>
+        <p>• Đáp vào ô Thuế sẽ đóng <strong>10% tổng giá trị tài sản</strong> (Tiền mặt + Giá trị các công trình sở hữu).</p>
+
+        <h3 style="color:var(--gothic-gold); margin:14px 0 6px;">🎨 7. Chuỗi Màu Monopolies (x2 Tiền Thuê)</h3>
+        <p>• Mua trọn bộ các thành phố cùng màu sẽ được <strong>x2 Tiền Thuê</strong> cơ bản.</p>
+      </div>
+      <footer class="property-modal-actions">
+        <button id="closeRulesBtn" class="btn btn-primary" style="width:100%;">Đã Hiểu</button>
       </footer>
     </article>
   </div>
