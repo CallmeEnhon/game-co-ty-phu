@@ -1,6 +1,6 @@
 /* =========================================================
    STATE MODULE (state.js)
-   MonoConCard Edition
+   MonoConCard Perfect Square 7x7 Grid Edition
    ========================================================= */
 
 window.GameConfig = {
@@ -43,11 +43,16 @@ window.boardCells = [
   { id: 23, title: "Cơ Hội", type: "chance", icon: "🔮" }
 ];
 
+// 7x7 Perfect Square Perimeter Positions (24 Tiles)
 window.gridPositions = [
-  [6,8],[6,7],[6,6],[6,5],[6,4],[6,3],[6,2],[6,1],
-  [5,1],[4,1],[3,1],[2,1],
-  [1,1],[1,2],[1,3],[1,4],[1,5],[1,6],[1,7],[1,8],
-  [2,8],[3,8],[4,8],[5,8]
+  // Bottom Edge (Row 7): Index 0..6 (Col 7 -> 1)
+  [7,7], [7,6], [7,5], [7,4], [7,3], [7,2], [7,1],
+  // Left Edge (Col 1): Index 7..11 (Row 6 -> 2)
+  [6,1], [5,1], [4,1], [3,1], [2,1],
+  // Top Edge (Row 1): Index 12..18 (Col 1 -> 7)
+  [1,1], [1,2], [1,3], [1,4], [1,5], [1,6], [1,7],
+  // Right Edge (Col 7): Index 19..23 (Row 2 -> 6)
+  [2,7], [3,7], [4,7], [5,7], [6,7]
 ];
 
 window.gameState = {
@@ -57,7 +62,7 @@ window.gameState = {
   turnCount: 0,
   rolling: false,
   busy: false,
-  cameraLocked: false, // false = auto-rotate camera per player turn; true = fixed camera angle
+  cameraLocked: false,
   roomCode: "4F7A",
   botDifficulty: "normal",
   players: JSON.parse(JSON.stringify(window.initialPlayers)),

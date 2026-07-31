@@ -409,12 +409,12 @@ button { cursor: pointer; }
 
 /* 24-Cell Perimeter Renaissance Board */
 .game-board {
-  width: min(100%, 1060px);
-  aspect-ratio: 1.75 / 1;
-  min-height: 570px;
+  width: min(100%, 720px);
+  aspect-ratio: 1 / 1;
+  min-height: 520px;
   display: grid;
-  grid-template-columns: 125px repeat(6, 1fr) 125px;
-  grid-template-rows: 108px repeat(4, 1fr) 108px;
+  grid-template-columns: 1.4fr repeat(5, 1fr) 1.4fr;
+  grid-template-rows: 1.4fr repeat(5, 1fr) 1.4fr;
   gap: 3px;
   padding: 10px;
   border-radius: 20px;
@@ -551,8 +551,8 @@ button { cursor: pointer; }
 
 /* Board Center Area */
 .board-center {
-  grid-column: 2 / 8;
-  grid-row: 2 / 6;
+  grid-column: 2 / 7;
+  grid-row: 2 / 7;
   display: grid;
   place-items: center;
   border-radius: 14px;
