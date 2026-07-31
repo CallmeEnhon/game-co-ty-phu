@@ -1,6 +1,6 @@
 /* =========================================================
-   UI MODULE (ui.js)  v4.0.0
-   MonoConCard - Full Game Logic: Jail/WorldTour/Festival/Rent
+   UI MODULE (ui.js)  v4.1.0
+   MonoConCard – Theo đúng Bộ Luật Office Business Tour
    ========================================================= */
 
 window.UIModule = {
@@ -20,9 +20,9 @@ window.UIModule = {
     const cameraLockBtn = document.querySelector("#cameraLockBtn");
     const leaveBtn      = document.querySelector("#leaveRoomBtn");
     const inGame = screenName === "game";
-    if (rulesBtn)      rulesBtn.classList.toggle("hidden", !inGame);
-    if (cameraLockBtn) cameraLockBtn.classList.toggle("hidden", !inGame);
-    if (leaveBtn)      leaveBtn.classList.toggle("hidden", !inGame);
+    rulesBtn?.classList.toggle("hidden", !inGame);
+    cameraLockBtn?.classList.toggle("hidden", !inGame);
+    leaveBtn?.classList.toggle("hidden", !inGame);
 
     if (screenName === "result") {
       this.renderResults();
@@ -36,9 +36,13 @@ window.UIModule = {
     if (!rail) return;
 
     rail.innerHTML = window.gameState.players.map((player, idx) => {
-      const isCurrent  = idx === window.gameState.currentPlayer;
-      const beaches    = (window.boardCells || []).filter(c => c.type === "beach" && c.ownerId === player.id).length;
-      const jailBadge  = player.inJail ? `<span style="color:#e74c3c;font-size:9px;">⛓️ Tù ${player.jailTurns || 0}</span>` : "";
+      const isCurrent = idx === window.gameState.currentPlayer;
+      const beaches   = window.boardCells.filter(c => c.type === "beach" && c.ownerId === player.id).length;
+      const propCount = (player.properties || []).length;
+      const groups    = [...new Set((player.properties||[]).map(i => window.boardCells[i]?.group).filter(Boolean))];
+      const monopolies = groups.filter(g => g !== "beach" && window.checkColorMonopoly(player.id, g));
+      const jailBadge = player.inJail ? `<span class="jail-badge">⛓️ Đảo Hoang (${player.jailTurns||0}/${window.GameConfig.JAIL_MAX_TURNS})</span>` : "";
+
       return `
         <article class="player-hud-card ${isCurrent ? "active-turn" : ""} ${player.bankrupt ? "bankrupt" : ""}"
                  style="--player-accent:${player.color}">
@@ -47,12 +51,11 @@ window.UIModule = {
           </div>
           <div class="player-hud-right">
             <div class="player-hud-name">
-              <span>${player.name}</span>
-              ${player.host ? "👑" : ""}${player.isBot ? "🤖" : ""}
-              ${jailBadge}
+              <span>${player.name}</span>${player.host?"👑":""}${player.isBot?"🤖":""}
             </div>
-            <div class="player-hud-money">$${(player.money || 0).toLocaleString()}</div>
-            <div class="player-hud-stats">Tài sản: $${(player.asset || 0).toLocaleString()} | 🏖️ ${beaches}/4</div>
+            ${jailBadge}
+            <div class="player-hud-money">${window.fmtMoney(player.money||0)}</div>
+            <div class="player-hud-stats">🏢 ${propCount} đất · 🏆 ${monopolies.length} nhóm · 🏖️ ${beaches}/4</div>
           </div>
         </article>`;
     }).join("");
@@ -72,25 +75,29 @@ window.UIModule = {
     if (!rollBtn || !current) return;
     const isMyTurn = current.id === window.myPlayerId;
     if (!window.gameState.busy && !window.gameState.rolling) {
-      rollBtn.disabled = !isMyTurn;
-      rollBtn.textContent = isMyTurn ? "🎲 Đổ Xúc Xắc" : `⏳ Lượt ${current.name}...`;
+      rollBtn.disabled   = !isMyTurn;
+      rollBtn.textContent = isMyTurn ? "🎲 Tung Xúc Xắc" : `⏳ Lượt ${current.name}...`;
     }
   },
 
-  /* ─── ROLL DICE (entry point for human player) ─────────── */
+  /* ─── ROLL DICE (Human entry point) ────────────────────── */
   async rollDice() {
     if (window.gameState.rolling || window.gameState.busy) return;
     const current = window.gameState.players[window.gameState.currentPlayer];
     if (!current || current.id !== window.myPlayerId) {
-      this.showToast(`Chưa tới lượt của bạn!`); return;
+      this.showToast("Chưa đến lượt của bạn!"); return;
     }
-
-    // If in jail → show jail dialog instead
-    if (current.inJail) {
-      this.openJailModal(current); return;
+    // Mất lượt do thẻ Burnout
+    if ((current.skipTurns || 0) > 0) {
+      current.skipTurns--;
+      this.showToast(`😴 ${current.name} bị mất lượt này (còn ${current.skipTurns} lượt mất tiếp)`);
+      this.addLog(`😴 ${current.name} bị mất lượt (Burnout)`);
+      if (window.RoomsModule) window.RoomsModule.broadcastState();
+      this.nextTurn(); return;
     }
+    // Nếu đang bị giam → hiện modal Đảo Hoang
+    if (current.inJail) { this.openJailModal(current); return; }
 
-    // Guest → ask host to roll
     if (window.RoomsModule && !window.RoomsModule.isHost) {
       window.gameState.rolling = true;
       document.querySelector("#rollDiceBtn").disabled = true;
@@ -100,7 +107,7 @@ window.UIModule = {
     await this.handleHostRollDice(current.id);
   },
 
-  /* ─── MAIN HOST ROLL DICE ─────────────────────────────── */
+  /* ─── HOST ROLL LOGIC ───────────────────────────────────── */
   async handleHostRollDice(playerId) {
     if (window.gameState.rolling || window.gameState.busy) return;
     const current = window.gameState.players.find(p => p.id === playerId)
@@ -112,43 +119,53 @@ window.UIModule = {
     const rollBtn = document.querySelector("#rollDiceBtn");
     if (rollBtn) rollBtn.disabled = true;
 
-    const diceA = document.querySelector("#diceA");
-    const diceB = document.querySelector("#diceB");
-
-    const result   = await window.AnimationsModule.animateDiceRoll(diceA, diceB);
+    const diceA  = document.querySelector("#diceA");
+    const diceB  = document.querySelector("#diceB");
+    const result = await window.AnimationsModule.animateDiceRoll(diceA, diceB);
     const total    = result.total;
     const isDouble = result.valA === result.valB;
     window.gameState.stats.diceRolls++;
 
-    // Double-roll count (3× → jail)
+    // Kiểm tra tung đôi 3 lần → vào Đảo Hoang
     if (isDouble) {
       current.doubleRollCount = (current.doubleRollCount || 0) + 1;
-      if (current.doubleRollCount >= 3) {
+      if (current.doubleRollCount >= window.GameConfig.DOUBLE_JAIL_LIMIT) {
         current.doubleRollCount = 0;
-        current.position = 24; current.inJail = true; current.jailTurns = 0;
-        this.showToast(`🚨 ${current.name} đổ ĐÔI 3 lần – vào Đảo Bị Lãng Quên!`);
-        this.addLog(`🚨 ${current.name} đổ đôi 3 lần liên tiếp, bị giam!`);
+        current.position  = 24;
+        current.inJail    = true;
+        current.jailTurns = 0;
+        this.showToast(`🚨 ${current.name} tung Đôi 3 lần – bị đưa đến Đảo Hoang!`);
+        this.addLog(`🚨 ${current.name} tung đôi 3 lần, vào Đảo Hoang!`);
         window.gameState.rolling = false; window.gameState.busy = false;
-        if (window.RoomsModule) window.RoomsModule.broadcastState();
         window.BoardModule?.renderBoard(); this.renderPlayerRail();
+        if (window.RoomsModule) window.RoomsModule.broadcastState();
         this.nextTurn(); return;
       }
     } else {
       current.doubleRollCount = 0;
     }
 
-    const logMsg = `${current.name} đổ xúc xắc: ${result.valA}+${result.valB}=${total}${isDouble ? " 🎲ĐÔI!" : ""}`;
+    const logMsg = `${current.name}: ${result.valA}+${result.valB}=${total}${isDouble ? " 🎲ĐÔI!" : ""}`;
     this.addLog(logMsg);
 
-    // Move step by step
+    // Di chuyển từng ô
+    const oldPos = current.position;
     await window.AnimationsModule.movePlayerStepByStep(current, total, (newPos, passedStart) => {
-      if (passedStart) {
+      if (passedStart && newPos !== 0) {
+        // Qua ô BẮT ĐẦU nhưng không dừng chính xác
         current.money += window.GameConfig.PASS_START_BONUS;
-        this.showToast(`🚩 ${current.name} qua ô Bắt Đầu: +$${window.GameConfig.PASS_START_BONUS}!`);
-        this.addLog(`🚩 ${current.name} qua ô Bắt Đầu, nhận +$${window.GameConfig.PASS_START_BONUS}`);
+        this.showToast(`🚩 Qua ô Bắt Đầu: +${window.fmtMoney(window.GameConfig.PASS_START_BONUS)}!`);
+        this.addLog(`🚩 ${current.name} qua Bắt Đầu, nhận +${window.fmtMoney(window.GameConfig.PASS_START_BONUS)}`);
         this.renderPlayerRail();
       }
     });
+
+    // Nếu dừng chính xác tại ô START (id=0)
+    if (current.position === 0) {
+      current.money += window.GameConfig.PASS_START_BONUS + window.GameConfig.PASS_START_EXACT;
+      this.showToast(`🎯 Dừng chính xác ô Bắt Đầu: +${window.fmtMoney(window.GameConfig.PASS_START_BONUS + window.GameConfig.PASS_START_EXACT)}!`);
+      this.addLog(`🎯 ${current.name} dừng đúng ô Bắt Đầu, nhận +${window.fmtMoney(window.GameConfig.PASS_START_BONUS + window.GameConfig.PASS_START_EXACT)}`);
+    }
 
     if (window.RoomsModule) {
       window.RoomsModule.publishCloudMessage({
@@ -157,314 +174,386 @@ window.UIModule = {
         players: window.gameState.players,
         boardCells: window.boardCells,
         currentPlayer: window.gameState.currentPlayer,
-        round: window.gameState.round,
-        logMsg
+        round: window.gameState.round, logMsg
       });
     }
 
     window.gameState.rolling = false;
-    this.handleCellAction(current);
+    this.renderPlayerRail();
+    this.handleCellAction(current, isDouble);
   },
 
-  /* ─── APPLY REMOTE STATE UPDATE ────────────────────────── */
-  async applyGameStateUpdate(data) {
+  applyGameStateUpdate(data) {
     const dA = document.querySelector("#diceA"), dB = document.querySelector("#diceB");
     if (dA) dA.setAttribute("data-value", data.valA);
     if (dB) dB.setAttribute("data-value", data.valB);
-    const totalEl    = document.querySelector("#diceTotal");
-    const moveTextEl = document.querySelector("#moveText");
-    if (totalEl)    totalEl.textContent    = `Tổng: ${data.total}${data.isDouble ? " 🎲ĐÔI!" : ""}`;
-    if (moveTextEl) moveTextEl.textContent = `Di chuyển ${data.total} ô`;
-
-    if (data.players)       window.gameState.players       = data.players;
-    if (data.boardCells)    window.boardCells              = data.boardCells;
+    if (data.players)  window.gameState.players  = data.players;
+    if (data.boardCells) window.boardCells       = data.boardCells;
     if (data.currentPlayer !== undefined) window.gameState.currentPlayer = data.currentPlayer;
     if (data.round !== undefined)         window.gameState.round         = data.round;
     if (data.logMsg) this.addLog(data.logMsg);
-
     window.BoardModule?.renderBoard();
     this.renderPlayerRail();
     this.updateTurnControls();
   },
 
-  hideAllModals() {
-    ["propertyModal","jailModal","rulesModal"].forEach(id => {
-      document.querySelector(`#${id}`)?.classList.add("hidden");
-    });
-    // Remove festival glow
-    document.querySelectorAll(".festival-selectable").forEach(el => el.classList.remove("festival-selectable"));
-  },
-
   /* ─── CELL ACTION DISPATCHER ────────────────────────────── */
-  handleCellAction(player) {
+  handleCellAction(player, rolledDouble = false) {
     const cell    = window.boardCells[player.position];
     const isMyTurn = player.id === window.myPlayerId;
-    if (!cell) { this.nextTurn(); return; }
+    if (!cell) { window.gameState.busy = false; this.nextTurn(); return; }
 
-    this.addLog(`${player.name} dừng tại: ${cell.title}`);
+    this.addLog(`📍 ${player.name} dừng tại: ${cell.icon} ${cell.title}`);
 
     switch (cell.type) {
       case "property":
       case "beach":
-        if (cell.ownerId === null) {
-          if (isMyTurn) this.openPropertyModal(cell, player);
-          else if (player.isBot && window.RoomsModule?.isHost) window.BotModule.decidePropertyPurchase(player, cell);
-          else { this.hideAllModals(); this.showToast(`⏳ ${player.name} đang cân nhắc mua ${cell.title}...`); }
-        } else if (cell.ownerId === player.id) {
-          if (cell.type === "property" && (cell.level||0) < window.GameConfig.MAX_PROPERTY_LEVEL) {
-            if (isMyTurn) this.openUpgradeModal(cell, player);
-            else if (player.isBot && window.RoomsModule?.isHost) window.BotModule.decideUpgradeProperty(player, cell);
-            else { this.hideAllModals(); this.showToast(`⏳ ${player.name} đang nâng cấp...`); }
-          } else {
-            this.nextTurn();
-          }
-        } else {
-          const owner = window.gameState.players.find(p => p.id === cell.ownerId);
-          const rent  = window.calculateEffectiveRent(cell);
-          if (owner && !owner.bankrupt) {
-            player.money -= rent;
-            owner.money  += rent;
-            this.showToast(`💸 ${player.name} trả $${rent} cho ${owner.name}`);
-            this.addLog(`💸 ${player.name} trả $${rent} tiền thuê cho ${owner.name} (${cell.title})`);
-            this.renderPlayerRail();
-            this.checkBankruptcy(player);
-            if (window.RoomsModule) window.RoomsModule.broadcastState();
-          }
-          setTimeout(() => this.nextTurn(), 1400);
-        }
-        break;
+        this._handlePropertyCell(cell, player, isMyTurn); break;
 
-      case "tax": {
-        const assets = player.money + (player.properties||[]).reduce((s,i) => s + (window.boardCells[i]?.cost||0), 0);
-        const tax    = Math.round(assets * window.GameConfig.TAX_PERCENTAGE);
-        player.money -= tax;
-        this.showToast(`📜 ${player.name} nộp thuế 10%: -$${tax}`);
-        this.addLog(`📜 ${player.name} nộp -$${tax} thuế tài sản`);
-        this.renderPlayerRail();
-        this.checkBankruptcy(player);
-        if (window.RoomsModule) window.RoomsModule.broadcastState();
-        setTimeout(() => this.nextTurn(), 1400);
-        break;
-      }
+      case "tax":
+        this._handleTaxCell(player); break;
 
       case "world_tour":
         if (isMyTurn) this.openWorldTourModal(player);
         else if (player.isBot && window.RoomsModule?.isHost) window.BotModule.decideWorldTour(player);
-        else { this.hideAllModals(); this.showToast(`✈️ ${player.name} đang chọn điểm bay...`); }
+        else { window.gameState.busy = false; this.showToast(`✈️ ${player.name} đang chọn điểm bay...`); setTimeout(()=>this.nextTurn(),1200); }
         break;
 
       case "festival":
         if (isMyTurn) this.openFestivalModal(player);
         else if (player.isBot && window.RoomsModule?.isHost) window.BotModule.decideFestival(player);
-        else { this.hideAllModals(); this.showToast(`🏆 ${player.name} đang chọn khu đất tổ chức lễ hội...`); }
+        else { window.gameState.busy = false; this.showToast(`🏆 ${player.name} đang chọn đất tổ chức...`); setTimeout(()=>this.nextTurn(),1200); }
         break;
 
       case "jail":
-        // Visiting, not imprisoned
-        this.addLog(`${player.name} thăm Đảo Bị Lãng Quên (không bị giam)`);
+        this.addLog(`${player.name} thăm Đảo Hoang (chỉ thăm, không bị giam)`);
+        window.gameState.busy = false;
         setTimeout(() => this.nextTurn(), 800);
         break;
 
-      case "chance": {
-        window.gameState.stats.chanceDrawn++;
-        const cards = [
-          { text: "🎁 Trúng xổ số! Nhận +$200",   money:  200 },
-          { text: "🎁 Thưởng thành tích! +$150",   money:  150 },
-          { text: "💸 Sửa chữa bất động sản -$100",money: -100 },
-          { text: "💸 Phí dịch vụ! Trả -$80",      money:  -80 },
-          { text: "🎉 Tổ chức tiệc! Nhận +$250",   money:  250 },
-          { text: "📉 Thị trường xuống, mất -$150", money: -150 }
-        ];
-        const card = cards[Math.floor(Math.random() * cards.length)];
-        player.money += card.money;
-        this.showToast(card.text);
-        this.addLog(`🎡 ${player.name} rút Cơ Hội: ${card.text}`);
-        this.renderPlayerRail();
-        this.checkBankruptcy(player);
-        if (window.RoomsModule) window.RoomsModule.broadcastState();
-        setTimeout(() => this.nextTurn(), 1400);
+      case "start":
+        // Đã xử lý ở trên rồi
+        window.gameState.busy = false;
+        setTimeout(() => this.nextTurn(), 600);
         break;
-      }
+
+      case "chance":
+        this._handleChanceCell(player); break;
 
       default:
+        window.gameState.busy = false;
         setTimeout(() => this.nextTurn(), 800);
+    }
+  },
+
+  /* ─── PROPERTY CELL ─────────────────────────────────────── */
+  _handlePropertyCell(cell, player, isMyTurn) {
+    if (!cell.ownerId) {
+      // Đất trống → mua
+      if (isMyTurn) this.openPropertyModal(cell, player);
+      else if (player.isBot && window.RoomsModule?.isHost) window.BotModule.decidePropertyPurchase(player, cell);
+      else { window.gameState.busy = false; setTimeout(() => this.nextTurn(), 800); }
+
+    } else if (cell.ownerId === player.id) {
+      // Đất của mình → nâng cấp
+      const nextLevel = (cell.level || 0) + 1;
+      if (nextLevel <= window.GameConfig.MAX_PROPERTY_LEVEL && cell.type === "property") {
+        if (isMyTurn) this.openUpgradeModal(cell, player);
+        else if (player.isBot && window.RoomsModule?.isHost) window.BotModule.decideUpgradeProperty(player, cell);
+        else { window.gameState.busy = false; setTimeout(() => this.nextTurn(), 800); }
+      } else {
+        window.gameState.busy = false; this.nextTurn();
+      }
+
+    } else {
+      // Đất của đối thủ → trả tiền thuê
+      const owner = window.gameState.players.find(p => p.id === cell.ownerId);
+      if (owner && !owner.bankrupt) {
+        const rent = window.calculateEffectiveRent(cell);
+        player.money -= rent;
+        owner.money  += rent;
+        this.showToast(`💸 ${player.name} trả ${window.fmtMoney(rent)} cho ${owner.name}`);
+        this.addLog(`💸 ${player.name} trả ${window.fmtMoney(rent)} thuê ${cell.icon} ${cell.title} cho ${owner.name}`);
+        this.renderPlayerRail();
+        if (window.RoomsModule) window.RoomsModule.broadcastState();
+        this.checkBankruptcy(player, owner);
+      }
+      window.gameState.busy = false;
+      setTimeout(() => this.nextTurn(), 1400);
+    }
+  },
+
+  /* ─── TAX CELL – 10% tiền mặt + 20K/đất ────────────────── */
+  _handleTaxCell(player) {
+    const taxCash  = Math.round((player.money || 0) * window.GameConfig.TAX_CASH_RATE);
+    const taxLand  = (player.properties || []).length * window.GameConfig.TAX_PER_LAND;
+    const taxLMark = (player.properties || []).filter(i => (window.boardCells[i]?.level||0) >= 4).length * window.GameConfig.TAX_PER_LANDMARK;
+    const totalTax = taxCash + taxLand + taxLMark;
+
+    player.money -= totalTax;
+    this.showToast(`📜 Nộp thuế: ${window.fmtMoney(taxCash)} (tiền mặt) + ${window.fmtMoney(taxLand)} (đất) = ${window.fmtMoney(totalTax)}`);
+    this.addLog(`📜 ${player.name} nộp thuế tổng cộng ${window.fmtMoney(totalTax)}`);
+    this.renderPlayerRail();
+    if (window.RoomsModule) window.RoomsModule.broadcastState();
+    this.checkBankruptcy(player, null);
+    window.gameState.busy = false;
+    setTimeout(() => this.nextTurn(), 1600);
+  },
+
+  /* ─── CHANCE CELL – Sự kiện bất ngờ ────────────────────── */
+  _handleChanceCell(player) {
+    window.gameState.stats.chanceDrawn++;
+    const events = [
+      // Có lợi
+      { icon:"🎁", text:"Thưởng dự án!",              effect: p => { p.money += 200000; this.showToast("🎁 Nhận +200K thưởng dự án!"); } },
+      { icon:"💰", text:"Tăng lương!",                 effect: p => { p.money += 100000; this.showToast("💰 Nhận +100K tăng lương!"); } },
+      { icon:"🎂", text:"Sinh nhật! Mỗi đối thủ trả 50K", effect: p => {
+          const others = window.gameState.players.filter(x => x.id !== p.id && !x.bankrupt);
+          others.forEach(o => { o.money -= 50000; p.money += 50000; });
+          this.showToast(`🎂 ${player.name} sinh nhật! Mỗi đối thủ trả 50K!`);
+      }},
+      { icon:"🛡️", text:"Bảo hiểm tài sản – miễn tiền thuê lần sau!", effect: p => { p.shieldTurns = (p.shieldTurns||0)+1; this.showToast("🛡️ Miễn tiền thuê 1 lần!"); } },
+      { icon:"✈️", text:"Vé World Tour miễn phí!",    effect: p => { this.openWorldTourModal(p); } },
+      // Bất lợi
+      { icon:"📉", text:"Trễ deadline! Mất 100K",      effect: p => { p.money -= 100000; this.showToast("📉 Mất 100K vì trễ deadline!"); } },
+      { icon:"🛠️", text:"Thiết bị hư! Trả 150K",       effect: p => { p.money -= 150000; this.showToast("🛠️ Mất 150K sửa thiết bị!"); } },
+      { icon:"😴", text:"Burnout! Mất lượt tiếp theo!", effect: p => { p.skipTurns = (p.skipTurns||0)+1; this.showToast("😴 Burnout! Mất 1 lượt!"); } },
+      { icon:"🌋", text:"Đi công tác – đến Đảo Hoang!", effect: p => {
+          p.position = 24; p.inJail = true; p.jailTurns = 0;
+          this.showToast(`🌋 ${p.name} bị điều đến Đảo Hoang!`);
+          window.BoardModule?.renderBoard();
+      }},
+      { icon:"💸", text:"Dự án bị hủy! Mất 15% tiền mặt", effect: p => {
+          const loss = Math.round((p.money||0)*0.15);
+          p.money -= loss;
+          this.showToast(`💸 Mất ${window.fmtMoney(loss)} vì dự án bị hủy!`);
+      }}
+    ];
+
+    const ev = events[Math.floor(Math.random() * events.length)];
+    this.addLog(`🎡 ${player.name} rút Cơ Hội: ${ev.icon} ${ev.text}`);
+    ev.effect(player);
+    this.renderPlayerRail();
+    if (window.RoomsModule) window.RoomsModule.broadcastState();
+    this.checkBankruptcy(player, null);
+
+    // Nếu cơ hội là World Tour thì không cần nextTurn ở đây (modal sẽ gọi)
+    if (!ev.text.includes("World Tour")) {
+      window.gameState.busy = false;
+      setTimeout(() => this.nextTurn(), 1400);
     }
   },
 
   /* ─── JAIL MODAL ─────────────────────────────────────────── */
   openJailModal(player) {
-    const modal    = document.querySelector("#jailModal");
+    const modal = document.querySelector("#jailModal");
     if (!modal) { this.nextTurn(); return; }
     modal.classList.remove("hidden");
     window.gameState.busy = true;
 
-    const payBtn  = document.querySelector("#payJailBtn");
-    const rollBtn = document.querySelector("#rollJailBtn");
+    // Cập nhật nội dung modal
+    const titleEl  = modal.querySelector("#jailModalTitle") || modal.querySelector("h2");
+    const descEl   = modal.querySelector("#jailModalDesc")  || modal.querySelector("p");
+    if (titleEl) titleEl.textContent = `⛓️ Bạn đang ở Đảo Hoang (Lượt ${(player.jailTurns||0)+1}/${window.GameConfig.JAIL_MAX_TURNS})`;
+    if (descEl)  descEl.textContent  = `Tung Đôi để thoát hoặc trả phí ${window.fmtMoney(window.GameConfig.JAIL_FINE)}`;
 
-    payBtn.onclick = () => {
-      if (player.money >= window.GameConfig.JAIL_FINE) {
+    const payBtn  = modal.querySelector("#payJailBtn");
+    const rollBtn = modal.querySelector("#rollJailBtn");
+    if (payBtn)  payBtn.textContent  = `Trả ${window.fmtMoney(window.GameConfig.JAIL_FINE)} – Ra ngay`;
+    if (rollBtn) rollBtn.textContent = `🎲 Tung Xúc Xắc – Thử Vận May`;
+
+    const handlePay = () => {
+      cleanup();
+      if ((player.money||0) >= window.GameConfig.JAIL_FINE) {
         player.money    -= window.GameConfig.JAIL_FINE;
         player.inJail    = false;
         player.jailTurns = 0;
-        this.showToast(`✅ ${player.name} nộp $${window.GameConfig.JAIL_FINE} và thoát tù!`);
-        this.addLog(`✅ ${player.name} nộp phạt $${window.GameConfig.JAIL_FINE}, được thả`);
+        this.showToast(`✅ ${player.name} trả ${window.fmtMoney(window.GameConfig.JAIL_FINE)} – thoát Đảo Hoang!`);
+        this.addLog(`✅ ${player.name} nộp phạt ${window.fmtMoney(window.GameConfig.JAIL_FINE)}, được thả`);
         modal.classList.add("hidden");
         window.gameState.busy = false;
         if (window.RoomsModule) window.RoomsModule.broadcastState();
         this.renderPlayerRail();
         this.handleHostRollDice(player.id);
       } else {
-        this.showToast(`❌ Không đủ $${window.GameConfig.JAIL_FINE}!`);
+        this.showToast(`❌ Không đủ ${window.fmtMoney(window.GameConfig.JAIL_FINE)}!`);
+        // Mở lại
+        payBtn?.addEventListener("click", handlePay, {once:true});
+        rollBtn?.addEventListener("click", handleRoll, {once:true});
       }
     };
 
-    rollBtn.onclick = async () => {
+    const handleRoll = async () => {
+      cleanup();
       modal.classList.add("hidden");
       window.gameState.busy = false;
+
       const diceA = document.querySelector("#diceA"), diceB = document.querySelector("#diceB");
-      const result = await window.AnimationsModule.animateDiceRoll(diceA, diceB);
+      const result   = await window.AnimationsModule.animateDiceRoll(diceA, diceB);
       const isDouble = result.valA === result.valB;
-      this.addLog(`${player.name} đổ thử vận may: ${result.valA}+${result.valB}=${result.total} ${isDouble?"✅ĐÔI–Thoát tù!":"❌ Chưa thoát"}`);
+      this.addLog(`${player.name} tung thử vận: ${result.valA}+${result.valB}=${result.total} ${isDouble?"✅ĐÔI":"❌ Trượt"}`);
 
       if (isDouble) {
         player.inJail    = false;
         player.jailTurns = 0;
-        this.showToast(`🎉 Đổ Đôi! ${player.name} thoát tù và di chuyển ${result.total} ô!`);
+        this.showToast(`🎉 Tung Đôi! ${player.name} thoát Đảo Hoang – di chuyển ${result.total} ô!`);
         window.gameState.rolling = true; window.gameState.busy = true;
-        await window.AnimationsModule.movePlayerStepByStep(player, result.total, (_, passedStart) => {
-          if (passedStart) {
-            player.money += window.GameConfig.PASS_START_BONUS;
-            this.renderPlayerRail();
-          }
+        await window.AnimationsModule.movePlayerStepByStep(player, result.total, (newPos, passedStart) => {
+          if (passedStart) { player.money += window.GameConfig.PASS_START_BONUS; this.renderPlayerRail(); }
         });
         window.gameState.rolling = false; window.gameState.busy = false;
         if (window.RoomsModule) window.RoomsModule.broadcastState();
         window.BoardModule?.renderBoard();
         this.renderPlayerRail();
-        this.handleCellAction(player);
+        this.handleCellAction(player, true);
       } else {
         player.jailTurns = (player.jailTurns || 0) + 1;
-        if (player.jailTurns >= 3) {
-          // Force pay after 3 failed attempts
-          player.money    -= window.GameConfig.JAIL_FINE;
+        if (player.jailTurns >= window.GameConfig.JAIL_MAX_TURNS) {
+          // Sau 3 lượt thất bại → buộc trả tiền
+          const canPay = (player.money||0) >= window.GameConfig.JAIL_FINE;
+          player.money    -= canPay ? window.GameConfig.JAIL_FINE : (player.money||0);
           player.inJail    = false;
           player.jailTurns = 0;
-          this.showToast(`⚠️ ${player.name} phải nộp phạt $${window.GameConfig.JAIL_FINE} sau 3 lượt tù!`);
-          this.addLog(`⚠️ ${player.name} bị trừ $${window.GameConfig.JAIL_FINE} sau 3 lượt không thoát`);
+          this.showToast(`⚠️ ${player.name} bị trừ ${window.fmtMoney(window.GameConfig.JAIL_FINE)} sau ${window.GameConfig.JAIL_MAX_TURNS} lượt!`);
+          this.addLog(`⚠️ ${player.name} bị trừ phí cưỡng chế sau ${window.GameConfig.JAIL_MAX_TURNS} lượt`);
+          this.checkBankruptcy(player, null);
         } else {
-          this.showToast(`😔 ${player.name} chưa đổ Đôi – còn ${3 - player.jailTurns} lượt trong tù`);
+          this.showToast(`😔 ${player.name} chưa tung Đôi – còn ${window.GameConfig.JAIL_MAX_TURNS - player.jailTurns} lượt`);
+          this.addLog(`😔 ${player.name} thất bại (${player.jailTurns}/${window.GameConfig.JAIL_MAX_TURNS} lượt ở Đảo Hoang)`);
         }
         if (window.RoomsModule) window.RoomsModule.broadcastState();
         this.renderPlayerRail();
         this.nextTurn();
       }
     };
+
+    const cleanup = () => {
+      payBtn?.removeEventListener("click", handlePay);
+      rollBtn?.removeEventListener("click", handleRoll);
+    };
+
+    payBtn?.addEventListener("click",  handlePay,  {once:true});
+    rollBtn?.addEventListener("click", handleRoll, {once:true});
   },
 
-  /* ─── WORLD TOUR MODAL (pick city to fly to) ────────────── */
+  /* ─── WORLD TOUR – CHUYẾN CÔNG TÁC ─────────────────────── */
   openWorldTourModal(player) {
-    if (player.money < window.GameConfig.WORLD_TOUR_FEE) {
-      this.showToast(`❌ Không đủ $${window.GameConfig.WORLD_TOUR_FEE} để bay!`);
-      this.nextTurn(); return;
-    }
-
-    // Build city list HTML
-    const cities = window.boardCells
-      .filter(c => c.type === "property" || c.type === "beach")
-      .map(c => `<option value="${c.id}">${c.icon} ${c.title} ($${c.cost}) – Ô ${c.id}</option>`)
-      .join("");
-
-    // Use a quick inline modal
     const existing = document.querySelector("#worldTourInlineModal");
     if (existing) existing.remove();
+
+    const cities = window.boardCells
+      .filter(c => c.type === "property" || c.type === "beach")
+      .map(c => {
+        const owner = c.ownerId ? window.gameState.players.find(p=>p.id===c.ownerId) : null;
+        const rentInfo = window.calculateEffectiveRent(c);
+        return `<option value="${c.id}">${c.icon} ${c.title} | Thuê: ${window.fmtMoney(rentInfo)} ${owner ? "| Chủ: "+owner.name : "| Trống"}</option>`;
+      }).join("");
 
     const div = document.createElement("div");
     div.id = "worldTourInlineModal";
     div.className = "modal-backdrop";
     div.innerHTML = `
-      <article class="property-modal" style="max-width:380px;">
-        <header class="property-modal-header" style="font-size:16px;text-align:center;">✈️ VÒNG QUANH THẾ GIỚI</header>
-        <div class="property-modal-body" style="display:block; padding:12px 0; color:#cfd8dc;">
-          <p style="margin-bottom:12px;font-size:13px;">Chọn điểm bay – Phí: <strong style="color:var(--gothic-gold)">$${window.GameConfig.WORLD_TOUR_FEE}</strong></p>
-          <select id="worldTourSelect" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid rgba(244,196,83,0.4);background:rgba(4,15,27,0.9);color:white;font-size:13px;outline:none;">
-            ${cities}
-          </select>
+      <article class="property-modal" style="max-width:420px;">
+        <header class="property-modal-header">✈️ CHUYẾN CÔNG TÁC ĐẶC BIỆT</header>
+        <div class="property-modal-body" style="display:block;padding:14px 0;color:#cfd8dc;">
+          <p style="font-size:13px;margin-bottom:12px;">Chọn địa điểm để di chuyển đến – <strong style="color:#27ae60">Miễn phí!</strong></p>
+          <p style="font-size:11px;color:#7f8c8d;margin-bottom:10px;">⚠️ Bạn vẫn phải thực hiện hành động tại ô đến.</p>
+          <select id="worldTourSelect" style="width:100%;padding:10px;border-radius:8px;border:1px solid rgba(244,196,83,0.4);background:rgba(4,15,27,0.95);color:white;font-size:12px;outline:none;">${cities}</select>
         </div>
         <footer class="property-modal-actions" style="flex-direction:column;gap:8px;">
-          <button id="worldTourConfirmBtn" class="btn btn-primary" style="width:100%;">🛫 Bay ngay ($${window.GameConfig.WORLD_TOUR_FEE})</button>
-          <button id="worldTourCancelBtn" class="btn btn-light" style="width:100%;">Bỏ qua</button>
+          <button id="worldTourConfirmBtn" class="btn btn-primary" style="width:100%;">🛫 Di Chuyển Ngay</button>
+          <button id="worldTourCancelBtn" class="btn btn-light" style="width:100%;">Bỏ qua lượt này</button>
         </footer>
       </article>`;
     document.body.appendChild(div);
 
     document.querySelector("#worldTourConfirmBtn").onclick = () => {
-      const sel    = document.querySelector("#worldTourSelect");
-      const destId = parseInt(sel.value, 10);
+      const destId   = parseInt(document.querySelector("#worldTourSelect").value, 10);
       const destCell = window.boardCells[destId];
       if (!destCell) return;
 
-      player.money -= window.GameConfig.WORLD_TOUR_FEE;
       const oldPos = player.position;
-      if (destId < oldPos) player.money += window.GameConfig.PASS_START_BONUS;
+      // Qua ô START khi bay?
+      if (destId < oldPos || destId === 0) {
+        player.money += window.GameConfig.PASS_START_BONUS;
+        this.showToast(`🚩 Qua Bắt Đầu trong chuyến bay: +${window.fmtMoney(window.GameConfig.PASS_START_BONUS)}`);
+      }
       player.position = destId;
 
       this.showToast(`✈️ ${player.name} bay đến ${destCell.icon} ${destCell.title}!`);
-      this.addLog(`✈️ ${player.name} bay đến ${destCell.title} (ô ${destId}), trả $${window.GameConfig.WORLD_TOUR_FEE}`);
-
+      this.addLog(`✈️ ${player.name} chọn Chuyến Công Tác → ${destCell.title} (ô ${destId})`);
       div.remove();
-      window.BoardModule?.updatePlayerTokens();
+
+      window.BoardModule?.updatePlayerTokens?.();
       this.renderPlayerRail();
       if (window.RoomsModule) window.RoomsModule.broadcastState();
+      window.gameState.busy = false;
       this.handleCellAction(player);
     };
 
     document.querySelector("#worldTourCancelBtn").onclick = () => {
       div.remove();
+      window.gameState.busy = false;
       this.nextTurn();
     };
   },
 
-  /* ─── FESTIVAL MODAL (glow owned cells, click to pick) ───── */
+  /* ─── FESTIVAL – TỔ CHỨC SỰ KIỆN ───────────────────────── */
   openFestivalModal(player) {
-    const ownedProps = (player.properties || [])
-      .map(idx => window.boardCells[idx])
-      .filter(c => c && c.type === "property");
+    const owned = (player.properties || []).map(i => window.boardCells[i]).filter(c => c && c.type === "property");
 
-    if (ownedProps.length === 0) {
-      this.showToast(`⚠️ ${player.name} chưa có đất nào để tổ chức Giải Đấu!`);
-      this.addLog(`⚠️ ${player.name} không sở hữu đất nào`);
-      this.nextTurn(); return;
+    if (owned.length === 0) {
+      // Theo luật: nếu không sở hữu đất, có thể chọn đất trống
+      const emptyProps = window.boardCells.filter(c => c.type === "property" && !c.ownerId);
+      if (emptyProps.length === 0) {
+        this.showToast(`⚠️ Không có đất nào để tổ chức sự kiện!`);
+        window.gameState.busy = false; this.nextTurn(); return;
+      }
     }
 
-    this.showToast(`🏆 Chọn khu đất tổ chức Giải Đấu Thế Giới!`);
-    this.addLog(`🏆 ${player.name} đang chọn khu đất tổ chức Lễ Hội`);
+    // Hợp lệ: đất của mình + đất trống
+    const validCells = window.boardCells.filter(c =>
+      c.type === "property" && (c.ownerId === player.id || !c.ownerId)
+    );
 
-    // Highlight all owned property cells on board
-    const allCells = document.querySelectorAll(".board-cell");
-    allCells.forEach(el => {
-      const cellId = parseInt(el.dataset.cellId, 10);
-      const cell   = window.boardCells[cellId];
-      if (cell && player.properties?.includes(cellId) && cell.type === "property") {
+    if (validCells.length === 0) {
+      this.showToast(`⚠️ Không có đất hợp lệ để tổ chức!`);
+      window.gameState.busy = false; this.nextTurn(); return;
+    }
+
+    this.showToast("🏆 Chọn khu đất để tổ chức Sự Kiện Công Ty!");
+    this.addLog(`🏆 ${player.name} đang chọn khu đất tổ chức Lễ Hội (x2 thuê, ${window.GameConfig.FESTIVAL_DURATION_ROUNDS} vòng)`);
+
+    // Glow tất cả ô hợp lệ trên board
+    const boardCellEls = document.querySelectorAll(".board-cell");
+    boardCellEls.forEach(el => {
+      const cid  = parseInt(el.dataset.cellId, 10);
+      const cell = window.boardCells[cid];
+      if (cell && (cell.ownerId === player.id || !cell.ownerId) && cell.type === "property") {
         el.classList.add("festival-selectable");
-        el.style.cursor = "pointer";
-        el.onclick = () => {
-          // Clear glow from all
+
+        const handler = () => {
+          // Remove all glows
           document.querySelectorAll(".festival-selectable").forEach(x => {
             x.classList.remove("festival-selectable");
-            x.onclick = null;
+            x._festHandler && x.removeEventListener("click", x._festHandler);
           });
 
-          // Apply festival to chosen cell
           cell.festivalUntil = window.gameState.round + window.GameConfig.FESTIVAL_DURATION_ROUNDS;
           el.classList.add("festival-active-cell");
 
-          this.showToast(`🏆 ${cell.title} được chọn! Tiền thuê x5 trong ${window.GameConfig.FESTIVAL_DURATION_ROUNDS} vòng!`);
-          this.addLog(`🏆 ${player.name} chọn ${cell.title} làm Giải Đấu Thế Giới (x5 thuê, ${window.GameConfig.FESTIVAL_DURATION_ROUNDS} vòng)`);
+          const currentRent = window.calculateEffectiveRent(cell);
+          this.showToast(`🎊 ${cell.title} tổ chức Sự Kiện! Thuê x${window.GameConfig.FESTIVAL_RENT_MULTIPLIER} (${window.GameConfig.FESTIVAL_DURATION_ROUNDS} vòng)`);
+          this.addLog(`🎊 ${player.name} chọn ${cell.title} → Thuê x${window.GameConfig.FESTIVAL_RENT_MULTIPLIER} trong ${window.GameConfig.FESTIVAL_DURATION_ROUNDS} vòng`);
 
           if (window.RoomsModule) window.RoomsModule.broadcastState();
           window.BoardModule?.renderBoard();
+          window.gameState.busy = false;
           this.nextTurn();
         };
+
+        el._festHandler = handler;
+        el.addEventListener("click", handler, {once: true});
       }
     });
   },
@@ -474,102 +563,144 @@ window.UIModule = {
     const modal = document.querySelector("#propertyModal");
     if (!modal) return;
 
-    document.querySelector("#propertyHeaderName").textContent = cell.title.toUpperCase();
-    document.querySelector("#propertyName").textContent       = cell.title;
-    document.querySelector("#propertyPrice").textContent      = `$${cell.cost}`;
-    document.querySelector("#propertyRent").textContent       = `$${cell.rent}`;
-    document.querySelector("#propertyOwnerText").textContent  = "Chưa có chủ sở hữu";
-    document.querySelector("#buyPropertyBtn").textContent     = `Mua ($${cell.cost})`;
+    const levelLabels = ["Trống","Văn phòng nhỏ","Mở rộng","Tòa nhà","Landmark"];
+    const nextRents = [1,2,3.5,5,7].map(f => Math.round((cell.rent||0)*f));
 
-    document.querySelector("#buyPropertyBtn").onclick = () => {
-      this.buyProperty(player, cell);
-      modal.classList.add("hidden");
-    };
+    document.querySelector("#propertyHeaderName").textContent = cell.title.toUpperCase();
+    document.querySelector("#propertyName").textContent       = `${cell.icon} ${cell.title}`;
+    document.querySelector("#propertyPrice").textContent      = window.fmtMoney(cell.cost);
+    document.querySelector("#propertyRent").textContent       = window.fmtMoney(cell.rent);
+    document.querySelector("#propertyOwnerText").textContent  = "Chưa có chủ sở hữu";
+
+    // Thêm bảng các cấp nếu element tồn tại
+    const detailEl = modal.querySelector("#propertyLevels") || modal.querySelector(".property-levels");
+    if (detailEl) {
+      detailEl.innerHTML = levelLabels.slice(1).map((label,i)=>`
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:#95a5a6;padding:3px 0;">
+          <span>Cấp ${i+1} – ${label}</span>
+          <span style="color:#f4b21f">Thuê: ${window.fmtMoney(nextRents[i+1])}</span>
+        </div>`).join("");
+    }
+
+    const canBuy = (player.money||0) >= cell.cost;
+    const buyBtn = document.querySelector("#buyPropertyBtn");
+    if (buyBtn) {
+      buyBtn.textContent = canBuy ? `Mua (${window.fmtMoney(cell.cost)})` : `❌ Không đủ tiền`;
+      buyBtn.disabled    = !canBuy;
+      buyBtn.onclick     = canBuy ? () => { this.buyProperty(player, cell); modal.classList.add("hidden"); } : null;
+    }
     document.querySelector("#skipPropertyBtn").onclick = () => {
-      modal.classList.add("hidden");
-      this.nextTurn();
+      modal.classList.add("hidden"); window.gameState.busy = false; this.nextTurn();
     };
     modal.classList.remove("hidden");
   },
 
   buyProperty(player, cell) {
-    if (player.money >= cell.cost) {
-      player.money -= cell.cost;
-      cell.ownerId  = player.id;
-      cell.level    = 0;
-      if (!player.properties) player.properties = [];
-      player.properties.push(cell.id);
-      window.gameState.stats.propertiesBought++;
+    player.money -= cell.cost;
+    cell.ownerId  = player.id;
+    cell.level    = 0;
+    player.properties = [...(player.properties||[]), cell.id];
+    window.gameState.stats.propertiesBought++;
 
-      this.showToast(`🏙️ ${player.name} đã mua ${cell.icon} ${cell.title} ($${cell.cost})!`);
-      this.addLog(`🏙️ ${player.name} sở hữu ${cell.title}`);
+    this.showToast(`🏢 ${player.name} mua ${cell.icon} ${cell.title} (${window.fmtMoney(cell.cost)})!`);
+    this.addLog(`🏢 ${player.name} mua ${cell.title}`);
+    if (window.RoomsModule) window.RoomsModule.broadcastState();
+    window.BoardModule?.renderBoard();
+    this.renderPlayerRail();
 
-      if (window.RoomsModule) window.RoomsModule.broadcastState();
-      window.BoardModule?.renderBoard();
-      this.renderPlayerRail();
-
-      if (window.checkBeachMonopolyWin(player)) {
-        this.showToast(`🏆 ${player.name} sở hữu đủ 4 Bãi Biển – THẮNG TUYỆT ĐỐI!`);
-        this.addLog(`🏆 ${player.name} THẮNG với 4 Bãi Biển!`);
-        setTimeout(() => this.showScreen("result"), 1200);
-        return;
-      }
-    } else {
-      this.showToast(`❌ Không đủ tiền mua ${cell.title}!`);
+    // Kiểm tra chiến thắng bãi biển
+    if (window.checkBeachMonopolyWin(player)) {
+      this.showToast(`🏆 ${player.name} sở hữu đủ 4 Bãi Biển – THẮNG!`);
+      setTimeout(() => this.showScreen("result"), 1000);
+      return;
     }
+    // Kiểm tra độc quyền cạnh bàn cờ (winning condition)
+    this._checkEdgeMonopolyWin(player);
+
+    window.gameState.busy = false;
     this.nextTurn();
+  },
+
+  _checkEdgeMonopolyWin(player) {
+    if (!window.gameSettings.monopolyWinEnabled) return;
+    // Cạnh dưới: ô 0-8, cạnh phải: 8-16, cạnh trên: 16-24, cạnh trái: 24-31+0
+    const edges = [[1,3,5,6,7],[9,10,11,13,14,15],[17,18,19,21,22,23],[25,26,27,28,29,30,31]];
+    for (const edge of edges) {
+      const landEdge = edge.filter(i => window.boardCells[i]?.type === "property" || window.boardCells[i]?.type === "beach");
+      if (landEdge.length > 0 && landEdge.every(i => window.boardCells[i]?.ownerId === player.id)) {
+        this.showToast(`🏆 ${player.name} độc quyền cả cạnh bàn cờ – THẮNG TUYỆT ĐỐI!`);
+        this.addLog(`🏆 ${player.name} thắng bằng độc quyền cả cạnh!`);
+        setTimeout(() => this.showScreen("result"), 1200);
+      }
+    }
   },
 
   /* ─── UPGRADE MODAL ─────────────────────────────────────── */
   openUpgradeModal(cell, player) {
-    const upgradeCost = window.calculateUpgradeCost(cell);
     const modal = document.querySelector("#propertyModal");
     if (!modal) return;
 
-    document.querySelector("#propertyHeaderName").textContent = `NÂNG CẤP: ${cell.title.toUpperCase()}`;
-    document.querySelector("#propertyName").textContent       = `${cell.title} (Cấp ${(cell.level||0)+1})`;
-    document.querySelector("#propertyPrice").textContent      = `$${upgradeCost}`;
-    document.querySelector("#propertyRent").textContent       = `$${window.calculateEffectiveRent(cell)}`;
-    document.querySelector("#propertyOwnerText").textContent  = `Chủ: ${player.name}`;
-    document.querySelector("#buyPropertyBtn").textContent     = `Nâng cấp ($${upgradeCost})`;
+    const nextLevel   = (cell.level || 0) + 1;
+    const upgradeCost = window.calculateUpgradeCost(cell);
+    const levelLabels = ["Trống","Văn phòng nhỏ","Mở rộng","Tòa nhà","Landmark"];
+    const newRentFact = [1,2,3.5,5,7][nextLevel] || 7;
+    const newRent     = Math.round((cell.rent||0) * newRentFact);
 
-    document.querySelector("#buyPropertyBtn").onclick = () => {
-      if (player.money >= upgradeCost) {
+    document.querySelector("#propertyHeaderName").textContent = `NÂNG CẤP: ${cell.title.toUpperCase()}`;
+    document.querySelector("#propertyName").textContent       = `${cell.icon} ${cell.title} → ${levelLabels[nextLevel] || "MAX"}`;
+    document.querySelector("#propertyPrice").textContent      = window.fmtMoney(upgradeCost);
+    document.querySelector("#propertyRent").textContent       = `${window.fmtMoney(window.calculateEffectiveRent(cell))} → ${window.fmtMoney(newRent)}`;
+    document.querySelector("#propertyOwnerText").textContent  = `Chủ: ${player.name} | Cấp hiện tại: ${levelLabels[cell.level||0]}`;
+
+    const canUpgrade = (player.money||0) >= upgradeCost;
+    const buyBtn = document.querySelector("#buyPropertyBtn");
+    if (buyBtn) {
+      buyBtn.textContent = canUpgrade ? `⬆️ Nâng cấp (${window.fmtMoney(upgradeCost)})` : `❌ Không đủ tiền (${window.fmtMoney(upgradeCost)})`;
+      buyBtn.disabled    = !canUpgrade;
+      buyBtn.onclick = canUpgrade ? () => {
         player.money -= upgradeCost;
-        cell.level    = (cell.level || 0) + 1;
-        this.showToast(`⬆️ ${player.name} nâng cấp ${cell.title} → Cấp ${cell.level}!`);
-        this.addLog(`⬆️ ${player.name} nâng cấp ${cell.title} lên Cấp ${cell.level}`);
+        cell.level    = nextLevel;
+        this.showToast(`⬆️ ${player.name} nâng cấp ${cell.title} → ${levelLabels[nextLevel]}`);
+        this.addLog(`⬆️ ${player.name} nâng cấp ${cell.title} lên ${levelLabels[nextLevel]}`);
         if (window.RoomsModule) window.RoomsModule.broadcastState();
         window.BoardModule?.renderBoard();
         this.renderPlayerRail();
-      } else {
-        this.showToast(`❌ Không đủ $${upgradeCost} để nâng cấp!`);
-      }
-      modal.classList.add("hidden");
-      this.nextTurn();
-    };
+        modal.classList.add("hidden");
+        window.gameState.busy = false;
+        this.nextTurn();
+      } : null;
+    }
     document.querySelector("#skipPropertyBtn").onclick = () => {
-      modal.classList.add("hidden");
-      this.nextTurn();
+      modal.classList.add("hidden"); window.gameState.busy = false; this.nextTurn();
     };
     modal.classList.remove("hidden");
   },
 
-  /* ─── BANKRUPTCY CHECK ───────────────────────────────────── */
-  checkBankruptcy(player) {
-    if (player.money < 0 && !player.bankrupt) {
-      player.bankrupt = true;
-      window.gameState.stats.bankruptcies++;
-      this.showToast(`💥 ${player.name} PHÁ SẢN!`);
-      this.addLog(`💥 ${player.name} phá sản!`);
-      (player.properties||[]).forEach(idx => {
-        const c = window.boardCells[idx];
-        if (c) { c.ownerId = null; c.level = 0; c.festivalUntil = null; }
-      });
-      player.properties = [];
-      if (window.RoomsModule) window.RoomsModule.broadcastState();
-      window.BoardModule?.renderBoard();
-    }
+  /* ─── BANKRUPTCY ─────────────────────────────────────────── */
+  checkBankruptcy(debtor, creditor) {
+    if (!debtor || debtor.money >= 0 || debtor.bankrupt) return;
+    debtor.bankrupt = true;
+    window.gameState.stats.bankruptcies++;
+    this.showToast(`💥 ${debtor.name} PHÁ SẢN!`);
+    this.addLog(`💥 ${debtor.name} phá sản!`);
+
+    // Tài sản chuyển cho chủ nợ hoặc về ngân hàng
+    (debtor.properties||[]).forEach(idx => {
+      const c = window.boardCells[idx];
+      if (!c) return;
+      if (creditor && !creditor.bankrupt) {
+        c.ownerId = creditor.id;
+        creditor.properties = [...(creditor.properties||[]), idx];
+      } else {
+        c.ownerId = null; c.level = 0; c.festivalUntil = null;
+      }
+    });
+    debtor.properties = [];
+    debtor.money = 0;
+
+    if (window.RoomsModule) window.RoomsModule.broadcastState();
+    window.BoardModule?.renderBoard();
+    this.renderPlayerRail();
   },
 
   /* ─── NEXT TURN ──────────────────────────────────────────── */
@@ -577,9 +708,9 @@ window.UIModule = {
     window.gameState.busy    = false;
     window.gameState.rolling = false;
 
-    const activePlayers = window.gameState.players.filter(p => !p.bankrupt);
-    if (activePlayers.length <= 1) {
-      const winner = activePlayers[0];
+    const active = window.gameState.players.filter(p => !p.bankrupt);
+    if (active.length <= 1) {
+      const winner = active[0];
       this.addLog(`🏆 ${winner?.name || "Không ai"} CHIẾN THẮNG!`);
       setTimeout(() => this.showScreen("result"), 800);
       return;
@@ -594,11 +725,11 @@ window.UIModule = {
     window.gameState.currentPlayer = nextIdx;
     if (window.RoomsModule) window.RoomsModule.broadcastState();
     this.renderPlayerRail();
-    window.BoardModule?.updateCameraPerspective();
+    window.BoardModule?.updateCameraPerspective?.();
 
     const current = window.gameState.players[nextIdx];
     if (current.isBot && window.RoomsModule?.isHost) {
-      setTimeout(() => window.BotModule.handleBotTurn(current), 800);
+      setTimeout(() => window.BotModule.handleBotTurn(current), 900);
     }
   },
 
@@ -609,7 +740,12 @@ window.UIModule = {
     const sorted = [...window.gameState.players]
       .map(p => ({
         ...p,
-        totalAsset: p.money + (p.properties||[]).reduce((s,i) => s + (window.boardCells[i]?.cost||0), 0)
+        totalAsset: (p.money||0) + (p.properties||[]).reduce((s,i) => {
+          const c = window.boardCells[i];
+          if (!c) return s;
+          const buildValue = (c.upgradeCosts||[]).slice(0, c.level||0).reduce((a,b)=>a+b,0) * 0.5;
+          return s + c.cost + buildValue;
+        }, 0)
       }))
       .sort((a,b) => b.totalAsset - a.totalAsset);
 
@@ -622,7 +758,8 @@ window.UIModule = {
           <span>${player.name}${player.isBot?"🤖":""}${i===0?"👑":""}</span>
         </div>
         <div class="rank-value">
-          Tổng tài sản<br><strong>$${player.totalAsset.toLocaleString()}</strong>
+          <span style="font-size:11px;color:#7f8c8d">Tổng tài sản</span><br>
+          <strong style="color:#f4b21f">${window.fmtMoney(player.totalAsset)}</strong>
         </div>
       </div>`).join("");
   },
@@ -631,11 +768,13 @@ window.UIModule = {
   addLog(msg) {
     const log = document.querySelector("#activityLog");
     if (!log) return;
-    const time = new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const time = new Date().toLocaleTimeString("vi-VN", {hour:"2-digit",minute:"2-digit",second:"2-digit"});
     const item = document.createElement("div");
     item.className = "log-item";
     item.innerHTML = `<span class="log-time">[${time}]</span> ${msg}`;
     log.prepend(item);
+    // Giới hạn 50 dòng
+    while (log.children.length > 50) log.removeChild(log.lastChild);
   },
 
   showToast(message) {
@@ -644,40 +783,38 @@ window.UIModule = {
     toast.textContent = message;
     toast.classList.remove("hidden");
     clearTimeout(this.toastTimer);
-    this.toastTimer = setTimeout(() => toast.classList.add("hidden"), 2400);
+    this.toastTimer = setTimeout(() => toast.classList.add("hidden"), 2600);
   },
 
-  /* ─── EVENT BINDINGS ─────────────────────────────────────── */
+  /* ─── EVENTS ─────────────────────────────────────────────── */
   bindEvents() {
     document.querySelector("#createRoomBtn")?.addEventListener("click", () => {
-      const code  = window.RoomsModule.generateRoomCode();
-      const label = document.querySelector("#roomCodeLabel");
-      if (label) label.textContent = code;
+      const code = window.RoomsModule?.generateRoomCode?.() || window.generateRandomCode();
+      const lbl  = document.querySelector("#roomCodeLabel");
+      if (lbl) lbl.textContent = code;
       this.showToast(`Đã tạo phòng: ${code}`);
     });
 
     document.querySelector("#joinRoomBtn")?.addEventListener("click", () => {
       const input = document.querySelector("#joinCodeInput");
-      const code  = (input?.value || "").trim().toUpperCase();
+      const code  = (input?.value||"").trim().toUpperCase();
       if (!code) { alert("Vui lòng nhập mã phòng!"); return; }
-      window.RoomsModule.joinRoom(code);
+      window.RoomsModule?.joinRoom?.(code);
     });
 
     document.querySelector("#copyRoomBtn")?.addEventListener("click", async () => {
       const code = document.querySelector("#roomCodeLabel")?.textContent || "";
-      await navigator.clipboard?.writeText(code);
+      await navigator.clipboard?.writeText(code).catch(()=>{});
       const btn = document.querySelector("#copyRoomBtn");
-      if (btn) { btn.textContent = "✓ Đã sao chép!"; setTimeout(() => btn.textContent = "📋 Mã phòng", 1300); }
+      if (btn) { btn.textContent = "✓ Đã sao chép!"; setTimeout(()=>btn.textContent="📋 Sao chép mã",1400); }
     });
 
-    document.querySelector("#copyLinkBtn")?.addEventListener("click", () => window.RoomsModule.copyInviteLink());
-
+    document.querySelector("#copyLinkBtn")?.addEventListener("click", () => window.RoomsModule?.copyInviteLink?.());
     document.querySelector("#rulesBtn")?.addEventListener("click", () => document.querySelector("#rulesModal")?.classList.remove("hidden"));
     document.querySelector("#closeRulesBtn")?.addEventListener("click", () => document.querySelector("#rulesModal")?.classList.add("hidden"));
-
-    document.querySelector("#cameraLockBtn")?.addEventListener("click", () => window.BoardModule?.toggleCameraLock());
-    document.querySelector("#startGameBtn")?.addEventListener("click", () => window.RoomsModule.triggerStartGame());
+    document.querySelector("#cameraLockBtn")?.addEventListener("click", () => window.BoardModule?.toggleCameraLock?.());
+    document.querySelector("#startGameBtn")?.addEventListener("click", () => window.RoomsModule?.triggerStartGame?.());
     document.querySelector("#rollDiceBtn")?.addEventListener("click", () => this.rollDice());
-    document.querySelector("#leaveRoomBtn")?.addEventListener("click", () => window.RoomsModule.leaveRoom());
+    document.querySelector("#leaveRoomBtn")?.addEventListener("click", () => window.RoomsModule?.leaveRoom?.());
   }
 };

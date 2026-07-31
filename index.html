@@ -7,8 +7,8 @@
   <title>MonoConCard - Business Tour Edition</title>
   
   <script>
-    // AUTO FORCE PURGE BROWSER CACHE & LOCALSTORAGE ON BUILD v4.0.0
-    const CURRENT_BUILD = "v4.0.0";
+    // AUTO FORCE PURGE BROWSER CACHE & LOCALSTORAGE ON BUILD v4.1.0
+    const CURRENT_BUILD = "v4.1.0";
     if (localStorage.getItem("monoconcard_build") !== CURRENT_BUILD) {
       localStorage.clear();
       localStorage.setItem("monoconcard_build", CURRENT_BUILD);
@@ -18,7 +18,7 @@
     }
   </script>
 
-  <link rel="stylesheet" href="styles.css?v=4.0.0" />
+  <link rel="stylesheet" href="styles.css?v=4.1.0" />
 </head>
 <body>
   <!-- 3-2-1 COUNTDOWN OVERLAY -->
@@ -174,8 +174,10 @@
         <div id="propertyImage" class="property-image">🏰</div>
         <div class="property-copy">
           <h2 id="propertyName">Lâu Đài Amboise</h2>
-          <p>Giá mua: <strong id="propertyPrice">$220</strong></p>
-          <p>Tiền thuê: <strong id="propertyRent">$35</strong></p>
+          <p>Giá mua: <strong id="propertyPrice">$220K</strong></p>
+          <p>Tiền thuê: <strong id="propertyRent">$35K</strong></p>
+          <hr />
+          <div id="propertyLevels" style="margin:6px 0;"></div>
           <hr />
           <p id="propertyOwnerText">Chưa có chủ sở hữu</p>
         </div>
@@ -189,18 +191,16 @@
 
   <!-- JAIL DECISION MODAL -->
   <div id="jailModal" class="modal-backdrop hidden">
-    <article class="property-modal">
-      <header class="property-modal-header">
-        ⛓️ ĐẢO BỊ LÃNG QUÊN (TÙ)
-      </header>
-      <div class="property-modal-body" style="text-align: center;">
-        <div style="font-size: 40px; margin: 15px 0;">🏝️ ⛓️</div>
-        <p style="margin-bottom: 12px;">Bạn đang bị giam cầm tại đây!</p>
-        <p style="font-size: 13px; color: var(--text-muted);">Hãy chọn phương án thoát khỏi đảo:</p>
+    <article class="property-modal" style="max-width:400px;">
+      <header class="property-modal-header" style="text-align:center;">⛓️ ĐẢO HOANG</header>
+      <div class="property-modal-body" style="display:block;text-align:center;padding:16px 0;">
+        <div style="font-size:44px;margin:10px 0;">🏝️⛓️</div>
+        <h3 id="jailModalTitle" style="color:#e74c3c;font-size:14px;margin-bottom:8px;">Bạn đang ở Đảo Hoang!</h3>
+        <p id="jailModalDesc" style="font-size:12px;color:#95a5a6;">Tung Đôi để thoát hoặc trả phí bảo lãnh</p>
       </div>
-      <footer class="property-modal-actions" style="flex-direction: column; gap: 8px;">
-        <button id="payJailBtn" class="btn btn-success" style="width: 100%;">Nộp phạt $150 để ra ngay</button>
-        <button id="rollJailBtn" class="btn btn-primary" style="width: 100%;">Thử vận may (Đổ xúc xắc Đôi)</button>
+      <footer class="property-modal-actions" style="flex-direction:column;gap:10px;">
+        <button id="payJailBtn" class="btn btn-success" style="width:100%;padding:12px;">💰 Trả 150K – Ra ngay</button>
+        <button id="rollJailBtn" class="btn btn-primary" style="width:100%;padding:12px;">🎲 Tung Xúc Xắc – Thử Vận May (Đôi = Thoát)</button>
       </footer>
     </article>
   </div>
@@ -212,21 +212,38 @@
         📜 HƯỚNG DẪN LUẬT CHƠI MONOCONCARD
       </header>
       <div class="property-modal-body" style="display:block; max-height:65vh; overflow-y:auto; font-size:13px; line-height:1.6; color:#d0e0f0;">
-        <h3 style="color:var(--gothic-gold); margin:10px 0 6px;">🎯 1. Mục Tiêu & Thắng Thua</h3>
-        <p>• Làm cho đối thủ Phá Sản hoặc giành chiến thắng đặc biệt.</p>
+        <h3 style="color:var(--gothic-gold); margin:10px 0 6px;">🎯 1. Mục Tiêu & Chiến Thắng</h3>
+        <p>• Người cuối cùng chưa phá sản sẽ THẮNG.</p>
+        <p>• Thắng đặc biệt: sở hữu 4 Bãi Biển hoặc độc quyền toàn bộ 1 cạnh bàn cờ.</p>
 
-        <h3 style="color:var(--gothic-gold); margin:14px 0 6px;">🏖️ 2. Luật Thắng 4 Bãi Biển (Bãi Biển Monopoly)</h3>
-        <p>• Sở hữu trọn bộ 4 bãi biển: <strong>Nice, Síp (Cyprus), Venice, Bali</strong> sẽ <strong>THẮNG NGAY LẬP TỨC</strong>!</p>
-        <p>• Có thể Bật/Tắt luật này tại màn hình Sảnh Chờ.</p>
+        <h3 style="color:var(--gothic-gold); margin:14px 0 6px;">💰 2. Tiền & Lương</h3>
+        <p>• Khởi điểm: <strong>2.000.000</strong>.</p>
+        <p>• Qua ô Bắt Đầu: nhận <strong>+200.000</strong>.</p>
+        <p>• Dừng chính xác tại Bắt Đầu: nhận thêm <strong>+100.000</strong>.</p>
 
-        <h3 style="color:var(--gothic-gold); margin:14px 0 6px;">🚨 3. Bị giam tại Đảo Bị Lãng Quên</h3>
-        <p>• Trả <strong>$150</strong> hoặc đổ <strong>Đôi</strong> để được phóng thích và di chuyển tiếp.</p>
+        <h3 style="color:var(--gothic-gold); margin:14px 0 6px;">🏢 3. Công Trình (4 Cấp)</h3>
+        <p>• Cấp 1: Văn phòng nhỏ (thuê x2) | Cấp 2: Mở rộng (x3.5)</p>
+        <p>• Cấp 3: Tòa nhà (x5) | Cấp 4: Landmark (x7)</p>
+        <p>• Độc quyền nhóm màu: thuê x2 toàn bộ nhóm.</p>
 
-        <h3 style="color:var(--gothic-gold); margin:14px 0 6px;">✈️ 4. Chuyến Đi Vòng Quanh Thế Giới (Bay Tự Do)</h3>
-        <p>• Trả <strong>$250</strong> lệ phí bay để chọn bay đến bất kỳ ô nào trên bản đồ.</p>
+        <h3 style="color:var(--gothic-gold); margin:14px 0 6px;">⛓️ 4. Đảo Hoang (Nhà Tù)</h3>
+        <p>• Tung Đôi → thoát và di chuyển ngay.</p>
+        <p>• Hoặc trả phí bảo lãnh: <strong>150.000</strong>.</p>
+        <p>• Sau 3 lượt thất bại → bắt buộc trả phí và được thả.</p>
 
-        <h3 style="color:var(--gothic-gold); margin:14px 0 6px;">🏆 5. Lễ Hội / Giải Đấu Thế Giới (x5 Tiền Thuê)</h3>
-        <p>• Đáp vào ô Lễ Hội sẽ kích hoạt làm sáng các vùng đất sở hữu. Click chọn 1 khu để tổ chức Giải đấu và được <strong>nhân x5 tiền thuê</strong>.</p>
+        <h3 style="color:var(--gothic-gold); margin:14px 0 6px;">✈️ 5. Chuyến Công Tác (World Tour)</h3>
+        <p>• Dừng tại ô này → chọn bất kỳ ô nào để bay đến <strong>miễn phí</strong>.</p>
+        <p>• Vẫn phải thực hiện hành động tại ô đến.</p>
+
+        <h3 style="color:var(--gothic-gold); margin:14px 0 6px;">🎊 6. Tổ Chức Sự Kiện (Festival)</h3>
+        <p>• Chọn 1 khu đất (của mình hoặc đất trống).</p>
+        <p>• Tiền thuê tăng <strong>x2</strong> trong <strong>3 vòng</strong>.</p>
+
+        <h3 style="color:var(--gothic-gold); margin:14px 0 6px;">📜 7. Thuế</h3>
+        <p>• Nộp 10% tiền mặt + 20.000/khu đất + 30.000/Landmark.</p>
+
+        <h3 style="color:var(--gothic-gold); margin:14px 0 6px;">🎡 8. Cơ Hội</h3>
+        <p>• Sự kiện ngẫu nhiên: có thể được tiền, mất tiền, mất lượt, hoặc bị đưa đến Đảo Hoang!</p>
       </div>
       <footer class="property-modal-actions">
         <button id="closeRulesBtn" class="btn btn-primary" style="width:100%;">Đã Hiểu</button>
@@ -238,13 +255,13 @@
   <script src="https://unpkg.com/mqtt@5.5.5/dist/mqtt.min.js"></script>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 
-  <!-- JS MODULES (WITH CACHE BUSTERS v4.0.0) -->
-  <script src="js/state.js?v=4.0.0"></script>
-  <script src="js/board.js?v=4.0.0"></script>
-  <script src="js/rooms.js?v=4.0.0"></script>
-  <script src="js/bot.js?v=4.0.0"></script>
-  <script src="js/animations.js?v=4.0.0"></script>
-  <script src="js/ui.js?v=4.0.0"></script>
-  <script src="app.js?v=4.0.0"></script>
+  <!-- JS MODULES (WITH CACHE BUSTERS v4.1.0) -->
+  <script src="js/state.js?v=4.1.0"></script>
+  <script src="js/board.js?v=4.1.0"></script>
+  <script src="js/rooms.js?v=4.1.0"></script>
+  <script src="js/bot.js?v=4.1.0"></script>
+  <script src="js/animations.js?v=4.1.0"></script>
+  <script src="js/ui.js?v=4.1.0"></script>
+  <script src="app.js?v=4.1.0"></script>
 </body>
 </html>
