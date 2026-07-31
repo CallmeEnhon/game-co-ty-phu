@@ -1,6 +1,6 @@
 /* =========================================================
    MONOCONCARD - SENIOR DESIGN SYSTEM (styles.css)
-   Strict Screen Scoping, 3D Dice Pips, Dual Camera & Mobile Orientation Lock
+   Strict Screen Scoping, 3D Dice Pips, Dual Camera & Active Glows
    ========================================================= */
 
 :root {
@@ -38,54 +38,6 @@ body {
   height: 100vh;
   width: 100vw;
   overflow: hidden !important;
-}
-
-/* MOBILE LANDSCAPE PROMPT OVERLAY */
-.orientation-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(7, 18, 30, 0.98);
-  backdrop-filter: blur(14px);
-  z-index: 99999;
-  display: grid;
-  place-items: center;
-  text-align: center;
-  color: white;
-  padding: 24px;
-}
-
-.orientation-box {
-  max-width: 380px;
-  background: rgba(15, 34, 54, 0.95);
-  border: 2px solid var(--gothic-gold);
-  border-radius: 18px;
-  padding: 30px 24px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
-}
-
-.phone-rotate-icon {
-  font-size: 54px;
-  margin-bottom: 16px;
-  animation: phoneRotateAnim 2s infinite ease-in-out;
-}
-
-@keyframes phoneRotateAnim {
-  0% { transform: rotate(0deg); }
-  50% { transform: rotate(-90deg); }
-  100% { transform: rotate(0deg); }
-}
-
-.orientation-box h2 {
-  font-size: 18px;
-  font-weight: 900;
-  color: var(--gothic-gold);
-  margin-bottom: 10px;
-}
-
-.orientation-box p {
-  font-size: 13px;
-  color: #b0bec5;
-  line-height: 1.5;
 }
 
 /* HEADER */
@@ -904,6 +856,24 @@ body {
 .ready-btn-active {
   background: #27ae60 !important;
   border-color: #2ecc71 !important;
+}
+
+/* FESTIVAL INTERACTION EFFECT */
+.board-cell.festival-selectable {
+  cursor: pointer !important;
+  box-shadow: 0 0 14px #ffe596, inset 0 0 12px #f4c453 !important;
+  animation: festivalSelectGlow 1s infinite alternate;
+}
+
+@keyframes festivalSelectGlow {
+  0% { transform: scale(1); filter: brightness(1); }
+  100% { transform: scale(1.02); filter: brightness(1.25); }
+}
+
+/* FESTIVAL ACTIVE CELL HIGHLIGHT */
+.board-cell.festival-active-cell {
+  box-shadow: 0 0 16px #e74c3c, inset 0 0 12px #c0392b !important;
+  border: 2px solid #e74c3c !important;
 }
 
 @media (max-width: 900px) {
