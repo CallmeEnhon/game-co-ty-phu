@@ -428,14 +428,14 @@ button { cursor: pointer; }
   transform-origin: center center;
 }
 
-/* Dynamic Isometric Camera Rotations per Player Perspective */
-.game-board.cam-p0 { transform: perspective(1100px) rotateX(48deg) rotateZ(0deg); }
-.game-board.cam-p1 { transform: perspective(1100px) rotateX(48deg) rotateZ(-90deg); }
-.game-board.cam-p2 { transform: perspective(1100px) rotateX(48deg) rotateZ(-180deg); }
-.game-board.cam-p3 { transform: perspective(1100px) rotateX(48deg) rotateZ(-270deg); }
+/* Direct Top-Down Overhead Camera Rotations per Player Perspective */
+.game-board.cam-p0 { transform: perspective(1200px) rotateX(10deg) rotateZ(0deg); }
+.game-board.cam-p1 { transform: perspective(1200px) rotateX(10deg) rotateZ(-90deg); }
+.game-board.cam-p2 { transform: perspective(1200px) rotateX(10deg) rotateZ(-180deg); }
+.game-board.cam-p3 { transform: perspective(1200px) rotateX(10deg) rotateZ(-270deg); }
 
 .game-board.camera-locked {
-  transform: perspective(1100px) rotateX(48deg) rotateZ(0deg) !important;
+  transform: perspective(1200px) rotateX(0deg) rotateZ(0deg) !important;
 }
 
 #cameraLockBtn.locked {
