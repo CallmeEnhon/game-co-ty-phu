@@ -1,0 +1,15 @@
+# Mac OS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Node & Build
+node_modules/
+dist/
+build/
+*.log
+
+# IDEs
+.idea/
+.vscode/
+*.swp

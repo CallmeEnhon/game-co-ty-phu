@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Game Cờ Tỷ Phú - Monopoly Vietnam Edition</title>
+  <meta name="description" content="Trò chơi Cờ Tỷ Phú phiên bản Việt Nam giao diện web hiện đại và hấp dẫn.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="game-header">
+      <div class="logo-area">
+        <span class="logo-icon">🎲</span>
+        <h1>CỜ TỶ PHÚ <span class="badge">VIỆT NAM</span></h1>
+      </div>
+      <div class="header-actions">
+        <button id="btn-new-game" class="btn btn-secondary">🎮 Trò chơi mới</button>
+        <button id="btn-sound" class="btn btn-icon">🔊</button>
+      </div>
+    </header>
+
+    <!-- Main Content: Board & Controls -->
+    <main class="game-layout">
+      <!-- Monopoly Board -->
+      <div class="board-wrapper">
+        <div id="monopoly-board" class="monopoly-board">
+          <!-- Center Controls & Log inside the board -->
+          <div class="board-center">
+            <div class="center-brand">
+              <h2>CỜ TỶ PHÚ</h2>
+              <p>Phiên Bản Thương Gia</p>
+            </div>
+            
+            <div class="dice-section">
+              <div class="dice-container">
+                <div id="dice1" class="dice">1</div>
+                <div id="dice2" class="dice">1</div>
+              </div>
+              <button id="btn-roll-dice" class="btn btn-primary btn-glow">🎲 Đổ Xí Ngầu</button>
+            </div>
+
+            <div class="current-turn-info">
+              <span id="turn-indicator">Lượt của: <strong>Người chơi 1</strong></span>
+            </div>
+
+            <div class="game-log-container">
+              <h3>📜 Nhật Ký Trò Chơi</h3>
+              <div id="game-log" class="game-log">
+                <p class="log-item system">🎉 Chào mừng bạn đến với Cờ Tỷ Phú Việt Nam!</p>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Board Tiles generated via JS -->
+        </div>
+      </div>
+
+      <!-- Right Panel: Players & Stats -->
+      <aside class="sidebar-panel">
+        <div class="panel-card players-card">
+          <h3>👥 Bảng Người Chơi</h3>
+          <div id="players-list" class="players-list">
+            <!-- Player Status items -->
+          </div>
+        </div>
+
+        <div class="panel-card action-card">
+          <h3>⚡ Hành Động</h3>
+          <div class="action-buttons">
+            <button id="btn-buy-property" class="btn btn-success" disabled>🏢 Mua Đất / Nhà</button>
+            <button id="btn-end-turn" class="btn btn-outline" disabled>➡️ Kết Thúc Lượt</button>
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <!-- Modal Event / Purchase -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal-card">
+      <h3 id="modal-title">Thông Báo</h3>
+      <p id="modal-body">Nội dung thông báo...</p>
+      <div id="modal-actions" class="modal-actions">
+        <button id="btn-modal-close" class="btn btn-primary">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
