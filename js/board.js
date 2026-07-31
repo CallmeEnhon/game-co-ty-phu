@@ -1,7 +1,6 @@
 /* =========================================================
    BOARD MODULE (board.js)
-   Renders the MonoConCard Isometric 3D Board and handles
-   Dynamic Player Camera Angle & Camera Lock Toggle.
+   Renders 32-cell Monopoly Perimeter Board and Camera Perspective.
    ========================================================= */
 
 window.BoardModule = {
@@ -9,62 +8,44 @@ window.BoardModule = {
     const board = document.querySelector("#gameBoard");
     if (!board) return;
 
-    // Preserve center widget
+    // Clear cell nodes while preserving center
     const center = board.querySelector(".board-center");
     board.innerHTML = "";
     if (center) board.appendChild(center);
 
     window.boardCells.forEach((cell, index) => {
-      const element = document.createElement("article");
-      element.className = `board-cell ${cell.type}`;
-      element.dataset.index = index;
+      const pos = window.gridPositions[index];
+      if (!pos) return;
 
-      const coords = window.gridPositions[index];
-      element.style.gridRow = coords[0];
-      element.style.gridColumn = coords[1];
+      const cellEl = document.createElement("div");
+      cellEl.className = `board-cell ${cell.type} ${cell.group || ""}`;
+      cellEl.dataset.index = index;
+      cellEl.style.gridRow = pos[0];
+      cellEl.style.gridColumn = pos[1];
 
-      // Property or Beach color band
-      let bandHTML = "";
-      if (cell.color && (cell.type === "property" || cell.type === "beach")) {
-        bandHTML = `<div class="property-band" style="--band-color:${cell.color}"></div>`;
-      }
-
-      // Owner indicator
-      let ownerHTML = "";
-      if (cell.ownerId !== null && cell.ownerId !== undefined) {
+      let content = "";
+      if (cell.type === "property" || cell.type === "beach") {
         const owner = window.gameState.players.find(p => p.id === cell.ownerId);
-        if (owner) {
-          ownerHTML = `<div class="cell-owner-dot" style="background:${owner.color}" title="Chủ sở hữu: ${owner.name}"></div>`;
-        }
-      }
+        const levelBadges = "🏰".repeat(cell.level || 0);
 
-      // Level badge
-      let levelHTML = "";
-      if (cell.level && cell.level > 0) {
-        levelHTML = `<div class="cell-level-badge">Lv.${cell.level}</div>`;
-      }
-
-      // Festival badge & countdown (x5 Rent)
-      let festivalHTML = "";
-      if (cell.festivalUntil && cell.festivalUntil >= window.gameState.round) {
-        const remainingRounds = cell.festivalUntil - window.gameState.round + 1;
-        festivalHTML = `<div class="cell-festival-badge" title="Đang tổ chức Lễ hội (x5 tiền thuê còn ${remainingRounds} vòng)">🏆 x5 (${remainingRounds}v)</div>`;
-      }
-
-      element.innerHTML = `
-        ${bandHTML}
-        ${ownerHTML}
-        ${levelHTML}
-        ${festivalHTML}
-        <div class="cell-content">
-          <div class="cell-icon">${cell.icon || ""}</div>
+        content = `
+          <div class="color-stripe" style="background:${cell.color}"></div>
           <div class="cell-title">${cell.title}</div>
-          <div class="cell-price">${cell.price || cell.subtitle || ""}</div>
-        </div>
-        <div class="cell-token-layer"></div>
-      `;
+          <div class="cell-price">${cell.price}</div>
+          ${owner ? `<div class="owner-dot" style="background:${owner.color}" title="Chủ: ${owner.name}"></div>` : ""}
+          ${levelBadges ? `<div class="building-level">${levelBadges}</div>` : ""}
+          ${cell.festivalUntil && cell.festivalUntil >= window.gameState.round ? '<div class="festival-badge">🏆 x5</div>' : ""}
+        `;
+      } else {
+        content = `
+          <div class="corner-icon">${cell.icon || "🎲"}</div>
+          <div class="cell-title">${cell.title}</div>
+          ${cell.subtitle ? `<div class="cell-subtitle">${cell.subtitle}</div>` : ""}
+        `;
+      }
 
-      board.appendChild(element);
+      cellEl.innerHTML = content;
+      board.appendChild(cellEl);
     });
 
     this.renderTokens();
@@ -72,51 +53,53 @@ window.BoardModule = {
   },
 
   renderTokens() {
-    document.querySelectorAll(".cell-token-layer").forEach(layer => layer.innerHTML = "");
-
     window.gameState.players.forEach(player => {
       if (player.bankrupt) return;
-      const layer = document.querySelector(`[data-index="${player.position}"] .cell-token-layer`);
-      if (!layer) return;
 
-      const token = document.createElement("div");
-      token.className = "board-token";
-      token.style.background = player.color;
-      token.textContent = player.name[0];
-      token.title = `${player.name} ($${player.money})`;
-      layer.appendChild(token);
+      const posIndex = player.position || 0;
+      const cellEl = document.querySelector(`[data-index="${posIndex}"]`);
+
+      if (cellEl) {
+        let tokenEl = cellEl.querySelector(`.token-p${player.id}`);
+        if (!tokenEl) {
+          tokenEl = document.createElement("div");
+          tokenEl.className = `board-token token-p${player.id}`;
+          tokenEl.style.backgroundColor = player.color;
+          tokenEl.textContent = player.avatar || "♟️";
+          cellEl.appendChild(tokenEl);
+        }
+      }
     });
+  },
+
+  toggleCameraLock() {
+    window.gameState.cameraLocked = !window.gameState.cameraLocked;
+    this.updateCameraPerspective();
   },
 
   updateCameraPerspective() {
     const board = document.querySelector("#gameBoard");
     if (!board) return;
 
-    // Reset camera angle classes
-    board.classList.remove("cam-p0", "cam-p1", "cam-p2", "cam-p3", "camera-locked");
+    board.className = "game-board";
 
     if (window.gameState.cameraLocked) {
-      board.classList.add("camera-locked");
+      board.classList.add("cam-locked");
     } else {
-      const pIndex = window.gameState.currentPlayer % 4;
-      board.classList.add(`cam-p${pIndex}`);
+      const activeIdx = window.gameState.currentPlayer || 0;
+      board.classList.add(`cam-p${activeIdx % 4}`);
     }
-  },
-
-  toggleCameraLock() {
-    window.gameState.cameraLocked = !window.gameState.cameraLocked;
-    this.updateCameraPerspective();
 
     const lockBtn = document.querySelector("#cameraLockBtn");
     if (lockBtn) {
       if (window.gameState.cameraLocked) {
         lockBtn.classList.add("locked");
         lockBtn.innerHTML = "🔒 Khoá Camera";
-        if (window.UIModule) window.UIModule.showToast("🔒 Đã khóa Camera (Góc tĩnh)");
+        if (window.UIModule) window.UIModule.showToast("🔒 Đã khóa Camera (Góc thẳng 0°)");
       } else {
         lockBtn.classList.remove("locked");
         lockBtn.innerHTML = "🔓 Xoay Camera";
-        if (window.UIModule) window.UIModule.showToast("🔓 Đã mở Xoay Camera theo lượt chơi!");
+        if (window.UIModule) window.UIModule.showToast("🔓 Đã mở Xoay Camera theo lượt!");
       }
     }
   }

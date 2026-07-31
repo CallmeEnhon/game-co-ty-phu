@@ -34,30 +34,24 @@ window.UIModule = {
 
     rail.innerHTML = window.gameState.players.map((player, idx) => {
       const isCurrent = idx === window.gameState.currentPlayer;
+      const ownedBeaches = (window.boardCells || []).filter(c => c.type === "beach" && c.ownerId === player.id).length;
 
       return `
-        <article class="player-card ${isCurrent ? "active-turn" : ""} ${player.bankrupt ? "bankrupt" : ""}">
-          <header class="player-card-header">
+        <article class="player-hud-card ${isCurrent ? "active-turn" : ""} ${player.bankrupt ? "bankrupt" : ""}" style="--player-accent:${player.color}">
+          <div class="player-hud-left">
             <div class="avatar" style="--avatar-color:${player.color}">${player.avatar}</div>
-            <div class="player-info">
-              <h3>
-                ${player.name}
-                ${player.isBot ? '<span class="bot-badge">🤖 Bot</span>' : ''}
-              </h3>
-              <p>${player.host ? "👑 Chủ phòng" : "Người chơi"}</p>
+          </div>
+          <div class="player-hud-right">
+            <div class="player-hud-name">
+              <span>${player.name}</span>
+              ${player.host ? '👑' : ''}
+              ${player.isBot ? '🤖' : ''}
             </div>
-          </header>
-
-          <dl class="player-card-stats">
-            <div>
-              <dt>Tiền mặt</dt>
-              <dd>$${(player.money || 0).toLocaleString()}</dd>
+            <div class="player-hud-money">$${(player.money || 0).toLocaleString()}</div>
+            <div class="player-hud-stats">
+              Tài sản: $${(player.asset || 0).toLocaleString()} | 🏖️ ${ownedBeaches}/4
             </div>
-            <div>
-              <dt>Tài sản</dt>
-              <dd>$${(player.asset || 0).toLocaleString()}</dd>
-            </div>
-          </dl>
+          </div>
         </article>
       `;
     }).join("");
@@ -130,7 +124,6 @@ window.UIModule = {
     }
 
     if (window.RoomsModule && !window.RoomsModule.isHost) {
-      // Guest sends Request Roll Dice to Host
       window.gameState.rolling = true;
       const rollBtn = document.querySelector("#rollDiceBtn");
       if (rollBtn) rollBtn.disabled = true;
@@ -142,7 +135,6 @@ window.UIModule = {
       return;
     }
 
-    // If Host, execute roll directly
     await this.handleHostRollDice(current.id);
   },
 
@@ -185,8 +177,14 @@ window.UIModule = {
       current.doubleRollCount = 0;
     }
 
-    // Move player position
-    current.position = (current.position + total) % 32;
+    await window.AnimationsModule.movePlayerStepByStep(current, total, (newPos, passedStart) => {
+      if (passedStart) {
+        current.money += window.GameConfig.PASS_START_BONUS;
+        this.showToast(`🚩 ${current.name} qua ô Bắt Đầu: +$${window.GameConfig.PASS_START_BONUS}`);
+        this.addLog(`🚩 ${current.name} đi qua ô Bắt Đầu và nhận +$${window.GameConfig.PASS_START_BONUS}`);
+        this.renderPlayerRail();
+      }
+    });
 
     if (window.RoomsModule) {
       window.RoomsModule.publishCloudMessage({
@@ -587,6 +585,13 @@ window.UIModule = {
     }
     if (closeRulesBtn && rulesModal) {
       closeRulesBtn.onclick = () => rulesModal.classList.add("hidden");
+    }
+
+    const cameraLockBtn = document.querySelector("#cameraLockBtn");
+    if (cameraLockBtn) {
+      cameraLockBtn.onclick = () => {
+        if (window.BoardModule) window.BoardModule.toggleCameraLock();
+      };
     }
 
     const startBtn = document.querySelector("#startGameBtn");
