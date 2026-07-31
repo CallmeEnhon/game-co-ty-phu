@@ -156,6 +156,7 @@ window.UIModule = {
     const diceA = document.querySelector("#diceA");
     const diceB = document.querySelector("#diceB");
 
+    // 1. Roll Dice Animation
     const result = await window.AnimationsModule.animateDiceRoll(diceA, diceB);
     window.gameState.stats.diceRolls++;
 
@@ -177,6 +178,7 @@ window.UIModule = {
       current.doubleRollCount = 0;
     }
 
+    // 2. Step-by-Step Movement Animation FIRST
     await window.AnimationsModule.movePlayerStepByStep(current, total, (newPos, passedStart) => {
       if (passedStart) {
         current.money += window.GameConfig.PASS_START_BONUS;
@@ -202,6 +204,8 @@ window.UIModule = {
     }
 
     window.gameState.rolling = false;
+
+    // 3. AFTER movement finishes, open Cell Action Modal ONLY for active player
     this.handleCellAction(current);
   },
 
@@ -229,6 +233,11 @@ window.UIModule = {
     this.updateTurnControls();
   },
 
+  hideAllModals() {
+    const propModal = document.querySelector("#propertyModal");
+    if (propModal) propModal.classList.add("hidden");
+  },
+
   handleCellAction(player) {
     const cellIndex = player.position;
     const cell = window.boardCells[cellIndex];
@@ -240,25 +249,27 @@ window.UIModule = {
 
     this.addLog(`${player.name} dừng chân tại ô: ${cell.title}`);
 
+    const isMyTurn = player.id === window.myPlayerId;
+
     if (cell.type === "property" || cell.type === "beach") {
       if (cell.ownerId === null) {
-        if (player.id === window.myPlayerId || player.isBot) {
-          if (player.isBot) {
-            window.BotModule.decidePropertyPurchase(player, cell);
-          } else {
-            this.openPropertyModal(cell, player);
-          }
+        if (isMyTurn) {
+          this.openPropertyModal(cell, player);
+        } else if (player.isBot && window.RoomsModule && window.RoomsModule.isHost) {
+          window.BotModule.decidePropertyPurchase(player, cell);
         } else {
-          this.showToast(`⏳ Chờ ${player.name} chọn mua ${cell.title}...`);
+          this.hideAllModals();
+          this.showToast(`⏳ Đang chờ ${player.name} cân nhắc mua ${cell.title}...`);
         }
       } else if (cell.ownerId === player.id) {
         if (cell.type === "property" && (cell.level || 0) < window.GameConfig.MAX_PROPERTY_LEVEL) {
-          if (player.id === window.myPlayerId || player.isBot) {
-            if (player.isBot) {
-              window.BotModule.decideUpgradeProperty(player, cell);
-            } else {
-              this.openUpgradeModal(cell, player);
-            }
+          if (isMyTurn) {
+            this.openUpgradeModal(cell, player);
+          } else if (player.isBot && window.RoomsModule && window.RoomsModule.isHost) {
+            window.BotModule.decideUpgradeProperty(player, cell);
+          } else {
+            this.hideAllModals();
+            this.showToast(`⏳ Đang chờ ${player.name} nâng cấp ${cell.title}...`);
           }
         } else {
           this.nextTurn();
@@ -274,6 +285,7 @@ window.UIModule = {
           this.addLog(`💸 ${player.name} trả $${rentCost} tiền thuê cho ${owner.name} tại ${cell.title}`);
           this.renderPlayerRail();
           this.checkBankruptcy(player);
+          if (window.RoomsModule) window.RoomsModule.broadcastState();
         }
         setTimeout(() => this.nextTurn(), 1400);
       }
@@ -289,30 +301,27 @@ window.UIModule = {
       this.addLog(`📜 ${player.name} đóng -$${taxAmount} tiền Thuế Tài Sản`);
       this.renderPlayerRail();
       this.checkBankruptcy(player);
+      if (window.RoomsModule) window.RoomsModule.broadcastState();
       setTimeout(() => this.nextTurn(), 1400);
 
     } else if (cell.type === "world_tour") {
-      this.showToast(`✈️ ${player.name} đến CHUYẾN ĐI VÒNG QUANH THẾ GIỚI!`);
-      if (player.id === window.myPlayerId || player.isBot) {
-        if (player.isBot) {
-          window.BotModule.decideWorldTour(player);
-        } else {
-          this.openWorldTourModal(player);
-        }
+      if (isMyTurn) {
+        this.openWorldTourModal(player);
+      } else if (player.isBot && window.RoomsModule && window.RoomsModule.isHost) {
+        window.BotModule.decideWorldTour(player);
       } else {
-        setTimeout(() => this.nextTurn(), 1500);
+        this.hideAllModals();
+        this.showToast(`✈️ ${player.name} đang chọn địa điểm bay tự do...`);
       }
 
     } else if (cell.type === "festival") {
-      this.showToast(`🏆 ${player.name} mở GIẢI ĐẤU THẾ GIỚI!`);
-      if (player.id === window.myPlayerId || player.isBot) {
-        if (player.isBot) {
-          window.BotModule.decideFestival(player);
-        } else {
-          this.openFestivalModal(player);
-        }
+      if (isMyTurn) {
+        this.openFestivalModal(player);
+      } else if (player.isBot && window.RoomsModule && window.RoomsModule.isHost) {
+        window.BotModule.decideFestival(player);
       } else {
-        setTimeout(() => this.nextTurn(), 1500);
+        this.hideAllModals();
+        this.showToast(`🏆 ${player.name} đang chọn công trình tổ chức Lễ Hội...`);
       }
 
     } else if (cell.type === "chance") {
@@ -328,6 +337,7 @@ window.UIModule = {
       this.addLog(`🎡 ${player.name} rút Cơ Hội: ${card.text}`);
       this.renderPlayerRail();
       this.checkBankruptcy(player);
+      if (window.RoomsModule) window.RoomsModule.broadcastState();
       setTimeout(() => this.nextTurn(), 1400);
 
     } else {
