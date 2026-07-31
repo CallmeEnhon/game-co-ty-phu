@@ -1,6 +1,6 @@
 /* =========================================================
    STATE MODULE (state.js)
-   Gothic & Renaissance Architecture Edition
+   MonoConCard Edition
    ========================================================= */
 
 window.GameConfig = {
@@ -57,6 +57,7 @@ window.gameState = {
   turnCount: 0,
   rolling: false,
   busy: false,
+  cameraLocked: false, // false = auto-rotate camera per player turn; true = fixed camera angle
   roomCode: "4F7A",
   botDifficulty: "normal",
   players: JSON.parse(JSON.stringify(window.initialPlayers)),

@@ -1,7 +1,6 @@
 /* =========================================================
    UI MODULE (ui.js)
-   Manages screens, player rail HUD, property modals,
-   festival modals, chance events, toasts, logs, and game loop.
+   MonoConCard Edition with Perspective Camera Support
    ========================================================= */
 
 window.UIModule = {
@@ -126,7 +125,7 @@ window.UIModule = {
     await this.delay(250);
 
     const landedCell = window.boardCells[current.position];
-    this.showToast(`${current.name} đã dừng ở: ${landedCell.title.toUpperCase()}`);
+    this.showToast(`${current.name} dừng tại: ${landedCell.title.toUpperCase()}`);
 
     await this.handleCellAction(current, landedCell);
 
@@ -137,12 +136,11 @@ window.UIModule = {
   async handleCellAction(player, cell) {
     if (cell.type === "property") {
       if (cell.ownerId === null || cell.ownerId === undefined) {
-        // Unowned property
         if (player.isBot) {
           if (window.BotModule.shouldBuyProperty(player, cell)) {
             this.buyProperty(player, cell);
           } else {
-            this.addLog(`${player.name} quyết định bỏ qua ${cell.title}.`);
+            this.addLog(`${player.name} bỏ qua ${cell.title}.`);
           }
           await this.delay(600);
           this.nextTurn();
@@ -150,7 +148,6 @@ window.UIModule = {
           this.openPropertyModal(cell, "buy");
         }
       } else if (cell.ownerId === player.id) {
-        // Own property -> Upgrade option
         if ((cell.level || 0) < window.GameConfig.MAX_PROPERTY_LEVEL) {
           if (player.isBot) {
             if (window.BotModule.shouldUpgradeProperty(player, cell)) {
@@ -164,12 +161,11 @@ window.UIModule = {
             this.openPropertyModal(cell, "upgrade");
           }
         } else {
-          this.addLog(`${player.name} dừng tại ${cell.title} (đã đạt cấp tối đa Lv.3).`);
+          this.addLog(`${player.name} dừng tại ${cell.title} (đã đạt Lv.3 tối đa).`);
           await this.delay(600);
           this.nextTurn();
         }
       } else {
-        // Pay rent to another player
         const owner = window.gameState.players.find(p => p.id === cell.ownerId);
         if (owner && !owner.bankrupt) {
           const rent = window.calculateEffectiveRent(cell);
@@ -181,7 +177,7 @@ window.UIModule = {
     } else if (cell.type === "tax") {
       const taxAmount = cell.amount || 150;
       player.money -= taxAmount;
-      this.addLog(`💸 ${player.name} phải đóng ${cell.title}: $${taxAmount}.`);
+      this.addLog(`💸 ${player.name} nộp ${cell.title}: $${taxAmount}.`);
       window.AnimationsModule.spawnFloatingMoney(player.position, `-$${taxAmount}`, "#ef4f43");
       this.checkBankruptcy(player);
       this.renderPlayerRail();
@@ -198,7 +194,7 @@ window.UIModule = {
         if (bestProperty) {
           this.applyFestivalToProperty(player, bestProperty);
         } else {
-          this.addLog(`${player.name} đến Lễ Hội nhưng chưa sở hữu công trình nào.`);
+          this.addLog(`${player.name} tới Lễ Hội nhưng chưa có công trình.`);
         }
         await this.delay(600);
         this.nextTurn();
@@ -222,7 +218,7 @@ window.UIModule = {
     player.properties.push(cell.id);
 
     window.gameState.stats.propertiesBought++;
-    this.addLog(`🏢 ${player.name} đã mua công trình ${cell.title} với giá $${cell.cost}!`);
+    this.addLog(`🏰 ${player.name} đã sở hữu ${cell.title} ($${cell.cost})!`);
     window.AnimationsModule.spawnFloatingMoney(cell.id, `-$${cell.cost}`, "#ef4f43");
 
     this.renderPlayerRail();
@@ -238,7 +234,7 @@ window.UIModule = {
     player.asset += cost;
     cell.level = (cell.level || 0) + 1;
 
-    this.addLog(`🏗️ ${player.name} đã nâng cấp ${cell.title} lên Lv.${cell.level} (Chi phí $${cost})!`);
+    this.addLog(`🏗️ ${player.name} nâng cấp ${cell.title} lên Lv.${cell.level} ($${cost})!`);
     window.AnimationsModule.spawnFloatingMoney(cell.id, `-$${cost}`, "#ef4f43");
     window.AnimationsModule.animateUpgradeBuilding(cell.id);
 
@@ -252,7 +248,7 @@ window.UIModule = {
     tenant.money -= actualRent;
     landlord.money += actualRent;
 
-    this.addLog(`⚠️ ${tenant.name} trả tiền thuê $${actualRent} cho ${landlord.name} tại ${cell.title}.`);
+    this.addLog(`⚠️ ${tenant.name} trả $${actualRent} tiền thuê cho ${landlord.name} tại ${cell.title}.`);
     window.AnimationsModule.spawnFloatingMoney(cell.id, `-$${actualRent}`, "#ef4f43");
 
     this.checkBankruptcy(tenant);
@@ -287,7 +283,7 @@ window.UIModule = {
       .filter(cell => cell && cell.type === "property" && cell.ownerId === player.id);
 
     if (ownedProperties.length === 0) {
-      this.showToast(`👑 ${player.name} đến Lễ Hội Hoàng Gia nhưng chưa có lâu đài nào.`);
+      this.showToast(`👑 ${player.name} đến Lễ Hội nhưng chưa sở hữu lâu đài nào.`);
       this.addLog(`${player.name} dừng tại Lễ Hội Hoàng Gia.`);
       this.nextTurn();
       return;
@@ -297,10 +293,10 @@ window.UIModule = {
     if (!modal) return;
 
     document.querySelector("#propertyHeaderName").textContent = "TỔ CHỨC LỄ HỘI HOÀNG GIA 👑";
-    document.querySelector("#propertyName").textContent = "Chọn kiến trúc để ban phước";
+    document.querySelector("#propertyName").textContent = "Chọn lâu đài để x2 Tiền Thuê";
     document.querySelector("#propertyPrice").textContent = "x2 Tiền Thuê";
     document.querySelector("#propertyRent").textContent = "Thời gian: 3 vòng";
-    document.querySelector("#propertyOwnerText").textContent = "Kiến trúc được chọn sẽ nhân đôi tiền thuê trong 3 vòng tới!";
+    document.querySelector("#propertyOwnerText").textContent = "Công trình được chọn sẽ x2 tiền thuê trong 3 vòng!";
     document.querySelector("#propertyImage").textContent = "👑";
 
     const actions = document.querySelector(".property-modal-actions");
@@ -324,7 +320,7 @@ window.UIModule = {
   applyFestivalToProperty(player, cell) {
     cell.festivalUntil = window.gameState.round + window.GameConfig.FESTIVAL_DURATION_ROUNDS - 1;
     this.showToast(`👑 LỄ HỘI: ${cell.title} x2 TIỀN THUÊ TRONG 3 VÒNG!`);
-    this.addLog(`👑 ${player.name} tổ chức Lễ Hội tại ${cell.title}. Tiền thuê nhân đôi!`);
+    this.addLog(`👑 ${player.name} tổ chức Lễ Hội tại ${cell.title}. Tiền thuê x2!`);
     window.AnimationsModule.animateFestivalGlow(cell.id);
     window.BoardModule.renderBoard();
   },
@@ -337,7 +333,6 @@ window.UIModule = {
     document.querySelector("#propertyHeaderName").textContent = cell.title.toUpperCase();
     document.querySelector("#propertyName").textContent = cell.title;
     
-    // Icon mapping for Renaissance architecture
     let icon = "🏰";
     if (cell.title.includes("Thánh Đường") || cell.title.includes("Đức Bà") || cell.title.includes("Chartres") || cell.title.includes("Rouen") || cell.title.includes("Köln")) {
       icon = "⛪";
@@ -414,9 +409,8 @@ window.UIModule = {
       player.bankrupt = true;
       window.gameState.stats.bankruptcies++;
       this.showToast(`💥 ${player.name} ĐÃ PHÁ SẢN!`);
-      this.addLog(`💥 ${player.name} không còn đủ khả năng tài chính và đã Phá Sản!`);
+      this.addLog(`💥 ${player.name} không còn đủ tiền và đã Phá Sản!`);
 
-      // Release properties
       player.properties.forEach(index => {
         const cell = window.boardCells[index];
         if (cell) {
@@ -434,7 +428,6 @@ window.UIModule = {
   nextTurn() {
     window.gameState.busy = false;
 
-    // Check active players count
     const activePlayers = window.gameState.players.filter(p => !p.bankrupt);
     if (activePlayers.length <= 1) {
       this.addLog(`🏆 ${activePlayers[0]?.name || "Không ai"} đã giành chiến thắng!`);
@@ -442,7 +435,6 @@ window.UIModule = {
       return;
     }
 
-    // Move to next non-bankrupt player
     let nextIdx = window.gameState.currentPlayer;
     do {
       nextIdx = (nextIdx + 1) % window.gameState.players.length;
@@ -457,6 +449,7 @@ window.UIModule = {
     const current = window.gameState.players[nextIdx];
 
     this.renderPlayerRail();
+    if (window.BoardModule) window.BoardModule.updateCameraPerspective();
 
     const rollBtn = document.querySelector("#rollDiceBtn");
     if (rollBtn) rollBtn.disabled = current.isBot;
@@ -543,6 +536,9 @@ window.UIModule = {
     const rollBtn = document.querySelector("#rollDiceBtn");
     if (rollBtn) rollBtn.onclick = () => this.rollDice();
 
+    const cameraBtn = document.querySelector("#cameraLockBtn");
+    if (cameraBtn) cameraBtn.onclick = () => window.BoardModule.toggleCameraLock();
+
     const playAgainBtn = document.querySelector("#playAgainBtn");
     if (playAgainBtn) playAgainBtn.onclick = () => this.resetGame();
 
@@ -560,7 +556,14 @@ window.UIModule = {
     window.gameState.busy = false;
     window.gameState.rolling = false;
 
-    window.gameState.players = JSON.parse(JSON.stringify(window.initialPlayers));
+    window.gameState.players.forEach(p => {
+      p.money = window.GameConfig.STARTING_MONEY;
+      p.asset = 0;
+      p.position = 0;
+      p.bankrupt = false;
+      p.properties = [];
+    });
+
     window.boardCells.forEach(cell => {
       cell.ownerId = null;
       cell.level = 0;

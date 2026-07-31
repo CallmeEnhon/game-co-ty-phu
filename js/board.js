@@ -1,7 +1,7 @@
 /* =========================================================
    BOARD MODULE (board.js)
-   Renders the board cells, tokens, property ownership,
-   upgrade levels, and festival countdown badges.
+   Renders the MonoConCard Isometric 3D Board and handles
+   Dynamic Player Camera Angle & Camera Lock Toggle.
    ========================================================= */
 
 window.BoardModule = {
@@ -48,7 +48,7 @@ window.BoardModule = {
       let festivalHTML = "";
       if (cell.festivalUntil && cell.festivalUntil >= window.gameState.round) {
         const remainingRounds = cell.festivalUntil - window.gameState.round + 1;
-        festivalHTML = `<div class="cell-festival-badge" title="Đang tổ chức Lễ hội (x2 tiền thuê còn ${remainingRounds} vòng)">🎉 ${remainingRounds}v</div>`;
+        festivalHTML = `<div class="cell-festival-badge" title="Đang tổ chức Lễ hội (x2 tiền thuê còn ${remainingRounds} vòng)">👑 ${remainingRounds}v</div>`;
       }
 
       element.innerHTML = `
@@ -56,9 +56,11 @@ window.BoardModule = {
         ${ownerHTML}
         ${levelHTML}
         ${festivalHTML}
-        <div class="cell-icon">${cell.icon || ""}</div>
-        <div class="cell-title">${cell.title}</div>
-        <div class="cell-price">${cell.price || cell.subtitle || ""}</div>
+        <div class="cell-content">
+          <div class="cell-icon">${cell.icon || ""}</div>
+          <div class="cell-title">${cell.title}</div>
+          <div class="cell-price">${cell.price || cell.subtitle || ""}</div>
+        </div>
         <div class="cell-token-layer"></div>
       `;
 
@@ -66,6 +68,7 @@ window.BoardModule = {
     });
 
     this.renderTokens();
+    this.updateCameraPerspective();
   },
 
   renderTokens() {
@@ -85,11 +88,36 @@ window.BoardModule = {
     });
   },
 
-  highlightCell(cellIndex) {
-    document.querySelectorAll(".board-cell").forEach(cell => cell.classList.remove("highlighted"));
-    const targetCell = document.querySelector(`[data-index="${cellIndex}"]`);
-    if (targetCell) {
-      targetCell.classList.add("highlighted");
+  updateCameraPerspective() {
+    const board = document.querySelector("#gameBoard");
+    if (!board) return;
+
+    // Reset camera angle classes
+    board.classList.remove("cam-p0", "cam-p1", "cam-p2", "cam-p3", "camera-locked");
+
+    if (window.gameState.cameraLocked) {
+      board.classList.add("camera-locked");
+    } else {
+      const pIndex = window.gameState.currentPlayer % 4;
+      board.classList.add(`cam-p${pIndex}`);
+    }
+  },
+
+  toggleCameraLock() {
+    window.gameState.cameraLocked = !window.gameState.cameraLocked;
+    this.updateCameraPerspective();
+
+    const lockBtn = document.querySelector("#cameraLockBtn");
+    if (lockBtn) {
+      if (window.gameState.cameraLocked) {
+        lockBtn.classList.add("locked");
+        lockBtn.innerHTML = "🔒 Khoá Camera";
+        if (window.UIModule) window.UIModule.showToast("🔒 Đã khóa Camera (Góc tĩnh)");
+      } else {
+        lockBtn.classList.remove("locked");
+        lockBtn.innerHTML = "🔓 Xoay Camera";
+        if (window.UIModule) window.UIModule.showToast("🔓 Đã mở Xoay Camera theo lượt chơi!");
+      }
     }
   }
 };
