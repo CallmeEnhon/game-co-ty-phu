@@ -965,9 +965,119 @@ button { cursor: pointer; }
 @media (max-width: 1050px) {
   .lobby-screen { padding: 28px 20px; }
   .room-card { width: min(650px, 65vw); }
-  .player-rail { width: 145px; }
-  .game-board { min-width: 880px; }
-  .board-stage { overflow-x: auto; justify-content: start; }
+}
+
+/* Mobile Orientation Prompt Overlay */
+.orientation-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(9, 19, 29, 0.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 10000;
+  display: none;
+  place-items: center;
+  text-align: center;
+  color: white;
+  padding: 24px;
+}
+
+.orientation-box {
+  max-width: 320px;
+  background: linear-gradient(180deg, rgba(15, 34, 54, 0.98), rgba(7, 18, 30, 0.98));
+  border: 2px solid var(--gothic-gold);
+  border-radius: 16px;
+  padding: 28px 20px;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+}
+
+.orientation-box h2 {
+  font-size: 16px;
+  color: var(--gothic-gold);
+  margin: 12px 0 8px;
+}
+
+.orientation-box p {
+  font-size: 13px;
+  color: #b0c4d8;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.phone-rotate-icon {
+  font-size: 48px;
+  margin-bottom: 8px;
+  position: relative;
+  display: inline-block;
+}
+
+.phone-rotate-icon span {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  font-size: 24px;
+  animation: spinRotate 2s linear infinite;
+}
+
+@keyframes spinRotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Mobile Devices (phones/tablets): Show orientation prompt ONLY in Portrait mode */
+@media screen and (max-width: 900px) and (orientation: portrait) {
+  .orientation-overlay {
+    display: grid !important;
+  }
+}
+
+/* Mobile Landscape Auto-Scale (no distortion) */
+@media screen and (max-width: 900px) and (orientation: landscape) {
+  .orientation-overlay {
+    display: none !important;
+  }
+
+  .app-header {
+    height: 44px;
+    padding: 0 12px;
+  }
+
+  .player-rail {
+    width: 130px;
+    padding: 8px 6px;
+    gap: 6px;
+  }
+
+  .player-hud {
+    min-height: 64px;
+    padding: 6px;
+  }
+
+  .player-hud-name { font-size: 10px; }
+  .player-hud-money { font-size: 12px; }
+  .player-hud-asset { font-size: 9px; margin-top: 2px; }
+
+  .board-stage {
+    padding: 6px;
+  }
+
+  .game-board {
+    width: min(90vw, calc(90vh - 50px));
+    aspect-ratio: 1 / 1;
+    min-height: auto;
+  }
+
+  .turn-widget {
+    width: 210px;
+    padding: 10px 12px;
+  }
+
+  .turn-widget h2 { font-size: 13px; margin-bottom: 6px; }
+  .dice-wrap { gap: 10px; }
+  .dice-face { width: 44px; height: 44px; }
+  .btn-roll { min-width: 110px; padding: 7px 14px; font-size: 12px; }
+  .cell-title { font-size: 8px; }
+  .cell-price { font-size: 8px; }
 }
 
 @media (max-width: 760px) {

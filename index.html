@@ -2,12 +2,21 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="description" content="MonoConCard - Dynamic 3D Isometric Monopoly Game" />
-  <title>MonoConCard - Isometric Edition</title>
+  <title>MonoConCard - Mobile Responsive Edition</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <!-- MOBILE LANDSCAPE PROMPT OVERLAY -->
+  <div id="orientationOverlay" class="orientation-overlay hidden">
+    <div class="orientation-box">
+      <div class="phone-rotate-icon">📱<span>🔄</span></div>
+      <h2>VUI LÒNG XOAY NGANG ĐIỆN THOẠI</h2>
+      <p>Để trải nghiệm bàn cờ MonoConCard đầy đủ và sắc nét nhất!</p>
+    </div>
+  </div>
+
   <div id="app">
     <!-- HEADER -->
     <header class="app-header">
