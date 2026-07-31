@@ -1,12 +1,47 @@
 /* =========================================================
    ROOMS MODULE (rooms.js)
-   Player naming rules: Player 1, Player 2...
-   Bot naming rules: Bot 1, Bot 2, Bot 3...
+   Realtime Sync & Invite Link Support (Firebase & URL Params)
    ========================================================= */
 
 window.RoomsModule = {
+  db: null,
+  roomListener: null,
+
   initLobby() {
+    this.initFirebase();
+    this.checkUrlInviteCode();
     this.renderLobbyPlayers();
+  },
+
+  initFirebase() {
+    if (window.firebase && window.FIREBASE_CONFIG) {
+      try {
+        if (!firebase.apps.length) {
+          firebase.initializeApp(window.FIREBASE_CONFIG);
+        }
+        this.db = firebase.firestore();
+        console.log("Firebase initialized successfully for Realtime Multiplayer.");
+      } catch (err) {
+        console.warn("Firebase initialization error:", err);
+      }
+    }
+  },
+
+  checkUrlInviteCode() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomCode = urlParams.get("room");
+    if (roomCode) {
+      const cleanCode = roomCode.trim().toUpperCase();
+      window.gameState.roomCode = cleanCode;
+      const label = document.querySelector("#roomCodeLabel");
+      if (label) label.textContent = cleanCode;
+
+      const input = document.querySelector("#joinCodeInput");
+      if (input) input.value = cleanCode;
+
+      // Auto join if joining via link
+      this.joinRoom(cleanCode);
+    }
   },
 
   generateRoomCode() {
@@ -17,9 +52,8 @@ window.RoomsModule = {
     }
     window.gameState.roomCode = code;
 
-    // Reset room to 1 Host player (Player 1)
     const hostPlayer = {
-      id: 0,
+      id: Date.now(),
       name: "Player 1",
       avatar: "👑",
       color: "#f4b21f",
@@ -34,9 +68,63 @@ window.RoomsModule = {
     };
 
     window.gameState.players = [hostPlayer];
+    this.updateUrlWithRoomCode(code);
     this.renderLobbyPlayers();
+    this.syncRoomToCloud();
 
     return code;
+  },
+
+  joinRoom(code) {
+    window.gameState.roomCode = code;
+    this.updateUrlWithRoomCode(code);
+
+    // If joining as new player and not yet in list
+    const myId = window.myPlayerId || Date.now();
+    window.myPlayerId = myId;
+
+    const existing = window.gameState.players.find(p => p.id === myId);
+    if (!existing) {
+      const playerNum = window.gameState.players.filter(p => !p.isBot).length + 1;
+      const colors = ["#f4b21f", "#36a774", "#438bd4", "#e56376"];
+      const newPlayer = {
+        id: myId,
+        name: `Player ${playerNum}`,
+        avatar: "👤",
+        color: colors[window.gameState.players.length % colors.length],
+        money: window.GameConfig.STARTING_MONEY,
+        asset: 0,
+        host: false,
+        ready: true,
+        position: 0,
+        isBot: false,
+        bankrupt: false,
+        properties: []
+      };
+      window.gameState.players.push(newPlayer);
+    }
+
+    this.renderLobbyPlayers();
+    this.subscribeToRoomCloud(code);
+    this.syncRoomToCloud();
+  },
+
+  updateUrlWithRoomCode(code) {
+    if (window.history && window.history.replaceState) {
+      const newUrl = `${window.location.pathname}?room=${code}`;
+      window.history.replaceState({ path: newUrl }, "", newUrl);
+    }
+  },
+
+  copyInviteLink() {
+    const code = window.gameState.roomCode || "4F7A";
+    const inviteUrl = `${window.location.origin}${window.location.pathname}?room=${code}`;
+
+    navigator.clipboard?.writeText(inviteUrl).then(() => {
+      if (window.UIModule) window.UIModule.showToast("🔗 Đã sao chép link mời bạn!");
+    }).catch(() => {
+      prompt("Sao chép link mời gửi cho bạn bè:", inviteUrl);
+    });
   },
 
   renderLobbyPlayers() {
@@ -86,6 +174,7 @@ window.RoomsModule = {
         window.UIModule.showToast(`Đã đổi tên thành: ${cleanName}`);
         window.UIModule.renderPlayerRail();
       }
+      this.syncRoomToCloud();
     }
   },
 
@@ -121,6 +210,7 @@ window.RoomsModule = {
     window.gameState.players.push(newBot);
     this.renderLobbyPlayers();
     if (window.UIModule) window.UIModule.showToast(`Đã thêm ${newBot.name} vào phòng!`);
+    this.syncRoomToCloud();
   },
 
   addHumanPlayer() {
@@ -155,15 +245,65 @@ window.RoomsModule = {
     window.gameState.players.push(newPlayer);
     this.renderLobbyPlayers();
     if (window.UIModule) window.UIModule.showToast(`Đã vào phòng: ${newPlayer.name}!`);
+    this.syncRoomToCloud();
   },
 
   removePlayer(playerId) {
     window.gameState.players = window.gameState.players.filter(p => p.id !== playerId);
     this.renderLobbyPlayers();
+    this.syncRoomToCloud();
   },
 
   setBotDifficulty(difficulty) {
     window.gameState.botDifficulty = difficulty;
     if (window.UIModule) window.UIModule.showToast(`Đã chọn độ khó Bot: ${difficulty.toUpperCase()}`);
+    this.syncRoomToCloud();
+  },
+
+  // Realtime Cloud Sync Methods
+  syncRoomToCloud() {
+    if (!this.db || !window.gameState.roomCode) return;
+
+    try {
+      const roomRef = this.db.collection("rooms").doc(window.gameState.roomCode);
+      roomRef.set({
+        roomCode: window.gameState.roomCode,
+        screen: window.gameState.screen,
+        currentPlayer: window.gameState.currentPlayer,
+        round: window.gameState.round,
+        players: window.gameState.players,
+        boardCells: window.boardCells,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    } catch (err) {
+      console.warn("Error syncing to Firestore:", err);
+    }
+  },
+
+  subscribeToRoomCloud(code) {
+    if (!this.db || !code) return;
+    if (this.roomListener) this.roomListener(); // Unsubscribe existing
+
+    try {
+      this.roomListener = this.db.collection("rooms").doc(code).onSnapshot(doc => {
+        if (doc.exists) {
+          const data = doc.data();
+          if (data.players) window.gameState.players = data.players;
+          if (data.boardCells) window.boardCells = data.boardCells;
+          if (data.currentPlayer !== undefined) window.gameState.currentPlayer = data.currentPlayer;
+          if (data.round !== undefined) window.gameState.round = data.round;
+
+          if (data.screen && data.screen !== window.gameState.screen) {
+            if (window.UIModule) window.UIModule.showScreen(data.screen);
+          }
+
+          this.renderLobbyPlayers();
+          if (window.BoardModule) window.BoardModule.renderBoard();
+          if (window.UIModule) window.UIModule.renderPlayerRail();
+        }
+      });
+    } catch (err) {
+      console.warn("Error subscribing to Firestore room:", err);
+    }
   }
 };

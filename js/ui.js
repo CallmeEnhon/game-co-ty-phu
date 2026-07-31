@@ -513,7 +513,14 @@ window.UIModule = {
         const code = document.querySelector("#roomCodeLabel")?.textContent || "";
         await navigator.clipboard?.writeText(code);
         copyBtn.textContent = "✓ Đã sao chép";
-        setTimeout(() => copyBtn.textContent = "📋 Sao chép mã", 1300);
+        setTimeout(() => copyBtn.textContent = "📋 Mã phòng", 1300);
+      };
+    }
+
+    const copyLinkBtn = document.querySelector("#copyLinkBtn");
+    if (copyLinkBtn) {
+      copyLinkBtn.onclick = () => {
+        window.RoomsModule.copyInviteLink();
       };
     }
 

@@ -45,9 +45,12 @@
         <div class="room-card-header">
           <div>
             <h1>PHÒNG: <span id="roomCodeLabel">4F7A</span></h1>
-            <p>Chờ người chơi...</p>
+            <p id="roomStatusText">Chờ người chơi...</p>
           </div>
-          <button id="copyRoomBtn" class="btn btn-light">📋 Sao chép mã</button>
+          <div style="display:flex; gap:8px;">
+            <button id="copyRoomBtn" class="btn btn-light">📋 Mã phòng</button>
+            <button id="copyLinkBtn" class="btn btn-primary" title="Sao chép link gửi cho bạn bè">🔗 Link Mời Bạn</button>
+          </div>
         </div>
 
         <div id="lobbyPlayers" class="lobby-player-list"></div>
@@ -150,6 +153,12 @@
       </footer>
     </article>
   </div>
+
+  <!-- FIREBASE SDKs (Compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
 
   <!-- JS MODULES -->
   <script src="js/state.js"></script>
