@@ -1,14 +1,12 @@
 /* =========================================================
    ROOMS MODULE (rooms.js)
-   Universal Realtime MQTT Cloud Relay & PeerJS Engine.
-   Guarantees 100% Instant Global Multiplayer (4G/5G/WiFi).
+   Universal Realtime MQTT Cloud Relay & Device Identity Engine.
+   Guarantees strict per-device name editing, ready state sync,
+   and 3-2-1 countdown game launcher.
    ========================================================= */
 
 window.RoomsModule = {
   mqttClient: null,
-  peer: null,
-  connections: [],
-  hostConn: null,
   isHost: false,
   broadcastChannel: null,
   currentTopic: null,
@@ -48,9 +46,8 @@ window.RoomsModule = {
         try { this.mqttClient.end(); } catch (e) {}
       }
 
-      // Connect to public high-speed MQTT WSS broker
       this.mqttClient = mqtt.connect("wss://broker.emqx.io:8084/mqtt", {
-        clientId: `client_${Date.now()}_${Math.random().toString(16).substring(2, 8)}`,
+        clientId: `client_${window.myPlayerId}_${Math.random().toString(16).substring(2, 6)}`,
         keepalive: 30,
         reconnectPeriod: 2000
       });
@@ -68,10 +65,6 @@ window.RoomsModule = {
           const data = JSON.parse(msg.toString());
           this.handleIncomingMessage(data);
         } catch (e) {}
-      });
-
-      this.mqttClient.on("error", (err) => {
-        console.warn("MQTT error:", err);
       });
     } catch (err) {
       console.warn("MQTT init exception:", err);
@@ -91,11 +84,14 @@ window.RoomsModule = {
       const input = document.querySelector("#joinCodeInput");
       if (input) input.value = cleanCode;
 
-      setTimeout(() => this.joinRoom(cleanCode), 400);
+      setTimeout(() => this.joinRoom(cleanCode), 300);
     } else {
       const freshCode = window.generateRandomCode();
       window.gameState.roomCode = freshCode;
       this.isHost = true;
+
+      // Ensure initial host has persistent device myPlayerId
+      window.gameState.players[0].id = window.myPlayerId;
 
       const label = document.querySelector("#roomCodeLabel");
       if (label) label.textContent = freshCode;
@@ -110,7 +106,7 @@ window.RoomsModule = {
     this.isHost = true;
 
     const hostPlayer = {
-      id: Date.now(),
+      id: window.myPlayerId,
       name: "Player 1",
       avatar: "👑",
       color: "#f4b21f",
@@ -151,20 +147,17 @@ window.RoomsModule = {
 
     if (window.UIModule) window.UIModule.showToast(`⏳ Đang kết nối vào phòng ${cleanCode}...`);
 
-    const myId = window.myPlayerId || Date.now();
-    window.myPlayerId = myId;
-
     this.initMQTTCloudRelay(cleanCode);
 
-    // Send Join Request via MQTT Cloud
+    // Send Join Request
     setTimeout(() => {
       const joinPayload = {
         type: "JOIN_REQUEST",
-        id: myId,
+        id: window.myPlayerId,
         name: `Player ${window.gameState.players.length + 1}`
       };
       this.publishCloudMessage(joinPayload);
-    }, 600);
+    }, 500);
   },
 
   handleIncomingMessage(data) {
@@ -174,15 +167,16 @@ window.RoomsModule = {
       const existing = window.gameState.players.find(p => p.id === data.id);
       if (!existing && window.gameState.players.length < 4) {
         const colors = ["#f4b21f", "#36a774", "#438bd4", "#e56376"];
+        const playerNum = window.gameState.players.filter(p => !p.isBot).length + 1;
         const newPlayer = {
           id: data.id,
-          name: data.name || `Player ${window.gameState.players.length + 1}`,
+          name: data.name || `Player ${playerNum}`,
           avatar: "👤",
           color: colors[window.gameState.players.length % colors.length],
           money: window.GameConfig.STARTING_MONEY,
           asset: 0,
           host: false,
-          ready: false,
+          ready: false, // New guests must click Ready!
           position: 0,
           isBot: false,
           bankrupt: false,
@@ -192,6 +186,16 @@ window.RoomsModule = {
         this.renderLobbyPlayers();
         this.broadcastState();
         if (window.UIModule) window.UIModule.showToast(`🟢 ${newPlayer.name} đã gia nhập phòng!`);
+      } else if (existing) {
+        // If already existing, re-send current room state
+        this.broadcastState();
+      }
+    } else if (data.type === "UPDATE_NAME") {
+      const player = window.gameState.players.find(p => p.id === data.id);
+      if (player) {
+        player.name = data.name;
+        this.renderLobbyPlayers();
+        if (this.isHost) this.broadcastState();
       }
     } else if (data.type === "TOGGLE_READY") {
       const player = window.gameState.players.find(p => p.id === data.id);
@@ -247,9 +251,29 @@ window.RoomsModule = {
     this.publishCloudMessage(payload);
   },
 
+  updateMyPlayerName(newName) {
+    const cleanName = newName.trim() || "Player";
+    const me = window.gameState.players.find(p => p.id === window.myPlayerId);
+
+    if (me) {
+      me.name = cleanName;
+      this.renderLobbyPlayers();
+
+      const msg = { type: "UPDATE_NAME", id: me.id, name: cleanName };
+      this.publishCloudMessage(msg);
+
+      if (window.UIModule) {
+        window.UIModule.showToast(`Đã đổi tên thành: ${cleanName}`);
+        window.UIModule.renderPlayerRail();
+      }
+    }
+  },
+
   toggleMyReady() {
-    const myId = window.myPlayerId || window.gameState.players[0]?.id;
-    const me = window.gameState.players.find(p => p.id === myId) || window.gameState.players[0];
+    let me = window.gameState.players.find(p => p.id === window.myPlayerId);
+    if (!me && window.gameState.players.length > 0) {
+      me = window.gameState.players[0];
+    }
 
     if (me) {
       me.ready = !me.ready;
@@ -267,6 +291,14 @@ window.RoomsModule = {
   triggerStartGame() {
     if (!this.isHost) {
       if (window.UIModule) window.UIModule.showToast("Chỉ Chủ phòng mới có quyền bấm Bắt đầu!");
+      return;
+    }
+
+    const activePlayers = window.gameState.players.filter(p => !p.bankrupt);
+    const allReady = activePlayers.length >= 2 && activePlayers.every(p => p.ready);
+
+    if (!allReady) {
+      if (window.UIModule) window.UIModule.showToast("Cần tất cả người chơi bấm Sẵn Sàng!");
       return;
     }
 
@@ -339,32 +371,49 @@ window.RoomsModule = {
     const container = document.querySelector("#lobbyPlayers");
     if (!container) return;
 
-    container.innerHTML = window.gameState.players.map((player, index) => `
-      <div class="lobby-player" style="animation-delay:${index * 70}ms">
-        <div class="avatar" style="--avatar-color:${player.color}">${player.avatar}</div>
-        <div class="player-details">
-          <div class="player-name">
-            ${!player.isBot ? `
-              <input class="player-name-input" value="${player.name}" onchange="window.RoomsModule.updatePlayerName(${player.id}, this.value)" placeholder="Nhập tên..." title="Bấm để đổi tên" />
-              <span class="edit-icon" title="Bấm vào tên để chỉnh sửa">✏️</span>
-            ` : `
-              <span>${player.name}</span>
-              <span class="bot-badge">🤖 Bot</span>
-            `}
-            ${player.host ? '<span>👑</span>' : ''}
+    container.innerHTML = window.gameState.players.map((player, index) => {
+      const isMe = player.id === window.myPlayerId || (!window.gameState.players.some(p => p.id === window.myPlayerId) && index === 0);
+
+      return `
+        <div class="lobby-player" style="animation-delay:${index * 70}ms">
+          <div class="avatar" style="--avatar-color:${player.color}">${player.avatar}</div>
+          <div class="player-details">
+            <div class="player-name">
+              ${isMe && !player.isBot ? `
+                <input class="player-name-input" value="${player.name}" onchange="window.RoomsModule.updateMyPlayerName(this.value)" placeholder="Nhập tên của bạn..." title="Bấm để chỉnh sửa tên của bạn" />
+                <span class="edit-icon" title="Sửa tên của bạn">✏️</span>
+              ` : `
+                <span style="font-weight:900;">${player.name}</span>
+              `}
+              ${player.isBot ? '<span class="bot-badge">🤖 Bot</span>' : ''}
+              ${player.host ? '<span>👑</span>' : ''}
+            </div>
+            ${player.host ? '<div class="host-tag">👑 Chủ phòng</div>' : ''}
           </div>
-          ${player.host ? '<div class="host-tag">👑 Chủ phòng</div>' : ''}
-        </div>
-        <div class="lobby-player-actions">
-          <div class="${player.ready ? 'ready-tag' : 'wait-tag'}">
-            ${player.ready ? '✓ Sẵn sàng' : '⏳ Chưa sẵn sàng'}
+          <div class="lobby-player-actions">
+            <div class="${player.ready ? 'ready-tag' : 'wait-tag'}">
+              ${player.ready ? '✓ Sẵn sàng' : '⏳ Chưa sẵn sàng'}
+            </div>
+            ${this.isHost && !player.host ? `
+              <button class="btn-remove-player" onclick="window.RoomsModule.removePlayer(${player.id})" title="Xóa người chơi">✕</button>
+            ` : ''}
           </div>
-          ${!player.host ? `
-            <button class="btn-remove-player" onclick="window.RoomsModule.removePlayer(${player.id})" title="Xóa người chơi">✕</button>
-          ` : ''}
         </div>
-      </div>
-    `).join("");
+      `;
+    }).join("");
+
+    // Toggle Ready Button state for current device user
+    const me = window.gameState.players.find(p => p.id === window.myPlayerId) || window.gameState.players[0];
+    const toggleReadyBtn = document.querySelector("#toggleReadyBtn");
+    if (toggleReadyBtn && me) {
+      if (me.ready) {
+        toggleReadyBtn.classList.add("ready-btn-active");
+        toggleReadyBtn.textContent = "✓ Đã Sẵn Sàng";
+      } else {
+        toggleReadyBtn.classList.remove("ready-btn-active");
+        toggleReadyBtn.textContent = "⚡ Sẵn Sàng";
+      }
+    }
 
     const activePlayers = window.gameState.players.filter(p => !p.bankrupt);
     const allReady = activePlayers.length >= 2 && activePlayers.every(p => p.ready);
@@ -374,7 +423,7 @@ window.RoomsModule = {
 
     if (startBtn) {
       if (!this.isHost) {
-        startBtn.textContent = "⏳ Đang chờ Chủ phòng bắt đầu...";
+        startBtn.textContent = "⏳ Đang chờ Chủ phòng bấm Bắt đầu...";
         startBtn.disabled = true;
       } else {
         startBtn.textContent = "🚀 Bắt đầu trò chơi";
@@ -388,21 +437,8 @@ window.RoomsModule = {
       } else if (!allReady) {
         hintText.textContent = "Chờ tất cả người chơi bấm Sẵn Sàng (Ready)!";
       } else {
-        hintText.textContent = "Tất cả đã sẵn sàng! Chủ phòng có thể bấm Bắt đầu trò chơi!";
+        hintText.textContent = "Tất cả đã sẵn sàng! Chủ phòng bấm Bắt đầu trò chơi!";
       }
-    }
-  },
-
-  updatePlayerName(playerId, newName) {
-    const cleanName = newName.trim() || `Player ${playerId + 1}`;
-    const player = window.gameState.players.find(p => p.id === playerId);
-    if (player) {
-      player.name = cleanName;
-      if (window.UIModule) {
-        window.UIModule.showToast(`Đã đổi tên thành: ${cleanName}`);
-        window.UIModule.renderPlayerRail();
-      }
-      this.broadcastState();
     }
   },
 

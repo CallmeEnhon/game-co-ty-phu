@@ -1,6 +1,6 @@
 /* =========================================================
    STATE MODULE (state.js)
-   MonoConCard - Dynamic Room Code & Rules
+   MonoConCard - Dynamic Room Code, Identity & Rules
    ========================================================= */
 
 window.GameConfig = {
@@ -18,6 +18,12 @@ window.gameSettings = {
   beachWinEnabled: true
 };
 
+// Initialize persistent Local Device Player ID
+if (!localStorage.getItem("monoconcard_my_id")) {
+  localStorage.setItem("monoconcard_my_id", "p_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7));
+}
+window.myPlayerId = localStorage.getItem("monoconcard_my_id");
+
 // Helper: Generate Random 4-letter Room Code
 window.generateRandomCode = function() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -28,10 +34,10 @@ window.generateRandomCode = function() {
   return code;
 };
 
-// Initial Player state: Only Player 1 (Host) initially
+// Initial Player state for Host
 window.initialPlayers = [
   {
-    id: Date.now(),
+    id: window.myPlayerId,
     name: "Player 1",
     avatar: "👑",
     color: "#f4b21f",
