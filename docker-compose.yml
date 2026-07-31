@@ -1,0 +1,7 @@
+services:
+  monoconcard:
+    build: .
+    container_name: monoconcard_game
+    ports:
+      - "8080:80"
+    restart: always
