@@ -520,11 +520,17 @@ window.UIModule = {
     const startBtn = document.querySelector("#startGameBtn");
     if (startBtn) {
       startBtn.onclick = () => {
+        window.gameState.busy = false;
+        window.gameState.rolling = false;
         this.showScreen("game");
         window.BoardModule.renderBoard();
         this.renderPlayerRail();
+
+        const rollBtn = document.querySelector("#rollDiceBtn");
         const firstPlayer = window.gameState.players[window.gameState.currentPlayer];
-        if (firstPlayer.isBot) {
+        if (rollBtn) rollBtn.disabled = firstPlayer ? firstPlayer.isBot : false;
+
+        if (firstPlayer && firstPlayer.isBot) {
           window.BotModule.handleBotTurn(firstPlayer);
         }
       };
@@ -534,7 +540,13 @@ window.UIModule = {
     if (leaveBtn) leaveBtn.onclick = () => this.showScreen("lobby");
 
     const rollBtn = document.querySelector("#rollDiceBtn");
-    if (rollBtn) rollBtn.onclick = () => this.rollDice();
+    if (rollBtn) {
+      rollBtn.onclick = () => {
+        if (!window.gameState.busy && !window.gameState.rolling) {
+          this.rollDice();
+        }
+      };
+    }
 
     const cameraBtn = document.querySelector("#cameraLockBtn");
     if (cameraBtn) cameraBtn.onclick = () => window.BoardModule.toggleCameraLock();
@@ -555,6 +567,9 @@ window.UIModule = {
     window.gameState.turnCount = 0;
     window.gameState.busy = false;
     window.gameState.rolling = false;
+
+    const rollBtn = document.querySelector("#rollDiceBtn");
+    if (rollBtn) rollBtn.disabled = false;
 
     window.gameState.players.forEach(p => {
       p.money = window.GameConfig.STARTING_MONEY;
