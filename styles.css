@@ -917,3 +917,36 @@ button { cursor: pointer; }
   filter: grayscale(0.8);
 }
 
+.player-name-input {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #172434;
+  background: #f8fafc;
+  outline: none;
+  width: 140px;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.player-name-input:hover {
+  border-color: #94a3b8;
+  background: #ffffff;
+}
+
+.player-name-input:focus {
+  border-color: #3b82f6;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+
+.edit-icon {
+  font-size: 12px;
+  opacity: 0.6;
+  cursor: pointer;
+  margin-left: 2px;
+}
+
+

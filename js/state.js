@@ -11,11 +11,9 @@ window.GameConfig = {
   MAX_PROPERTY_LEVEL: 3
 };
 
+// Default initial state: ONLY 1 Host player when room is created!
 window.initialPlayers = [
-  { id: 0, name: "Sếp Lớn", avatar: "👨🏻‍💼", color: "#f0a43b", money: 1500, asset: 0, host: true, ready: true, position: 0, isBot: false, bankrupt: false, properties: [] },
-  { id: 1, name: "Marketing Tina", avatar: "👩🏻‍💼", color: "#e56376", money: 1500, asset: 0, host: false, ready: true, position: 0, isBot: true, bankrupt: false, properties: [] },
-  { id: 2, name: "Kế Toán Nam", avatar: "👨🏻‍💻", color: "#36a774", money: 1500, asset: 0, host: false, ready: true, position: 0, isBot: true, bankrupt: false, properties: [] },
-  { id: 3, name: "Dev Huy", avatar: "👨🏻‍🔬", color: "#438bd4", money: 1500, asset: 0, host: false, ready: false, position: 0, isBot: true, bankrupt: false, properties: [] }
+  { id: 0, name: "Sếp Lớn", avatar: "👨🏻‍💼", color: "#f0a43b", money: 1500, asset: 0, host: true, ready: true, position: 0, isBot: false, bankrupt: false, properties: [] }
 ];
 
 window.boardCells = [
