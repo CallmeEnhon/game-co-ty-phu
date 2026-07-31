@@ -363,16 +363,56 @@ button { cursor: pointer; }
   z-index: 5;
 }
 
-.player-card {
-  min-height: 95px;
-  padding: 12px 14px;
-  color: white;
-  border-radius: 10px;
-  background: linear-gradient(180deg, rgba(15, 34, 54, 0.96), rgba(7, 18, 30, 0.96));
-  box-shadow: 0 8px 20px rgba(0,0,0,0.5);
-  border: 1px solid rgba(244, 196, 83, 0.25);
-  border-left: 5px solid var(--player-color, var(--gothic-gold));
-  transition: all .25s ease;
+.player-hud-card {
+  min-height: 76px !important;
+  padding: 10px 12px !important;
+  display: grid !important;
+  grid-template-columns: 46px 1fr !important;
+  align-items: center !important;
+  gap: 10px !important;
+  background: rgba(10, 25, 42, 0.96) !important;
+  border: 2px solid rgba(244, 196, 83, 0.4) !important;
+  border-left: 6px solid var(--player-accent, #f4b21f) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5) !important;
+  color: #ffffff !important;
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+}
+
+.player-hud-card.active-turn {
+  border-color: #f4c453 !important;
+  box-shadow: 0 0 16px rgba(244, 196, 83, 0.6), 0 8px 20px rgba(0, 0, 0, 0.7) !important;
+  transform: translateX(4px) !important;
+}
+
+.player-hud-card.bankrupt {
+  opacity: 0.4 !important;
+  filter: grayscale(0.8) !important;
+}
+
+.player-hud-name {
+  font-size: 14px !important;
+  font-weight: 900 !important;
+  color: #ffffff !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9) !important;
+}
+
+.player-hud-money {
+  font-size: 16px !important;
+  font-weight: 900 !important;
+  color: #f4c453 !important;
+  margin: 2px 0 3px 0 !important;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9) !important;
+}
+
+.player-hud-stats {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #b0bec5 !important;
+  white-space: nowrap !important;
 }
 
 .player-card.active-turn {
@@ -489,12 +529,13 @@ button { cursor: pointer; }
   transform-origin: center center;
 }
 
-/* Direct Top-Down Overhead Camera Rotations per Player Perspective */
-.game-board.cam-p0 { transform: perspective(1200px) rotateX(10deg) rotateZ(0deg); }
-.game-board.cam-p1 { transform: perspective(1200px) rotateX(10deg) rotateZ(-90deg); }
-.game-board.cam-p2 { transform: perspective(1200px) rotateX(10deg) rotateZ(-180deg); }
-.game-board.cam-p3 { transform: perspective(1200px) rotateX(10deg) rotateZ(-270deg); }
+/* 3D Isometric & Direct Top-Down Camera Perspective */
+.game-board.cam-p0 { transform: perspective(1200px) rotateX(42deg) rotateZ(0deg); }
+.game-board.cam-p1 { transform: perspective(1200px) rotateX(42deg) rotateZ(-90deg); }
+.game-board.cam-p2 { transform: perspective(1200px) rotateX(42deg) rotateZ(-180deg); }
+.game-board.cam-p3 { transform: perspective(1200px) rotateX(42deg) rotateZ(-270deg); }
 
+.game-board.cam-locked,
 .game-board.camera-locked {
   transform: perspective(1200px) rotateX(0deg) rotateZ(0deg) !important;
 }
