@@ -1,7 +1,8 @@
 /* =========================================================
    ROOMS MODULE (rooms.js)
-   Universal Realtime MQTT Cloud Relay & In-Game Action Sync Engine.
-   Guarantees 100% Lockstep Synchronization Across All Devices.
+   Universal Realtime MQTT Cloud Relay Engine.
+   Guarantees 100% Lockstep Synchronized Multiplayer,
+   Confirmable Name Editing, and Strict Turn Locking.
    ========================================================= */
 
 window.RoomsModule = {
@@ -46,7 +47,8 @@ window.RoomsModule = {
         try { this.mqttClient.end(); } catch (e) {}
       }
 
-      this.mqttClient = mqtt.connect("wss://broker.emqx.io:8084/mqtt", {
+      const brokerUrl = "wss://broker.emqx.io:8084/mqtt";
+      this.mqttClient = mqtt.connect(brokerUrl, {
         clientId: `client_${window.myPlayerId}_${Math.random().toString(16).substring(2, 6)}`,
         keepalive: 20,
         reconnectPeriod: 1500
@@ -256,21 +258,19 @@ window.RoomsModule = {
 
       this.renderLobbyPlayers();
       if (window.BoardModule) window.BoardModule.renderBoard();
-      if (window.UIModule) window.UIModule.renderPlayerRail();
+      if (window.UIModule) {
+        window.UIModule.renderPlayerRail();
+        window.UIModule.updateTurnControls();
+      }
     } else if (data.type === "START_COUNTDOWN") {
       this.playCountdownAndStart();
-    } else if (data.type === "ACTION_ROLL_DICE") {
-      // Don't re-roll if originated from this device
-      if (data.senderId !== window.myPlayerId && window.UIModule) {
-        window.UIModule.applyRemoteDiceRoll(data);
+    } else if (data.type === "REQ_ROLL_DICE") {
+      if (this.isHost && window.UIModule) {
+        window.UIModule.handleHostRollDice(data.playerId);
       }
-    } else if (data.type === "ACTION_BUY_PROPERTY") {
-      if (data.senderId !== window.myPlayerId && window.UIModule) {
-        window.UIModule.applyRemoteBuyProperty(data);
-      }
-    } else if (data.type === "ACTION_NEXT_TURN") {
-      if (data.senderId !== window.myPlayerId && window.UIModule) {
-        window.UIModule.applyRemoteNextTurn(data);
+    } else if (data.type === "GAME_STATE_UPDATE") {
+      if (window.UIModule) {
+        window.UIModule.applyGameStateUpdate(data);
       }
     }
   },
@@ -304,6 +304,13 @@ window.RoomsModule = {
     this.publishCloudMessage(payload);
   },
 
+  confirmMyName() {
+    const input = document.querySelector("#myPlayerNameInput");
+    if (input) {
+      this.updateMyPlayerName(input.value);
+    }
+  },
+
   updateMyPlayerName(newName) {
     const cleanName = newName.trim() || "Player";
     let me = window.gameState.players.find(p => p.id === window.myPlayerId);
@@ -316,7 +323,7 @@ window.RoomsModule = {
       this.publishCloudMessage(msg);
 
       if (window.UIModule) {
-        window.UIModule.showToast(`Đã đổi tên thành: ${cleanName}`);
+        window.UIModule.showToast(`✔ Đã lưu tên thành: ${cleanName}`);
         window.UIModule.renderPlayerRail();
       }
     }
@@ -429,8 +436,10 @@ window.RoomsModule = {
           <div class="player-details">
             <div class="player-name">
               ${isMe && !player.isBot ? `
-                <input class="player-name-input" value="${player.name}" onchange="window.RoomsModule.updateMyPlayerName(this.value)" placeholder="Nhập tên của bạn..." title="Bấm để chỉnh sửa tên của bạn" />
-                <span class="edit-icon" title="Sửa tên của bạn">✏️</span>
+                <div style="display:flex; gap:6px; align-items:center;">
+                  <input id="myPlayerNameInput" class="player-name-input" value="${player.name}" onkeydown="if(event.key==='Enter') window.RoomsModule.confirmMyName()" placeholder="Nhập tên..." title="Nhập tên và bấm ✔ để xác nhận" />
+                  <button class="btn btn-sm btn-success" onclick="window.RoomsModule.confirmMyName()" style="padding:4px 10px; font-size:12px; font-weight:900;" title="Xác nhận đổi tên">✔</button>
+                </div>
               ` : `
                 <span style="font-weight:900;">${player.name}</span>
               `}

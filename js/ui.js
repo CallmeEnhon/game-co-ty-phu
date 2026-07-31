@@ -77,7 +77,7 @@ window.UIModule = {
     const rollBtn = document.querySelector("#rollDiceBtn");
     if (!rollBtn || !current) return;
 
-    const isMyTurn = current.id === window.myPlayerId || (!current.isBot && window.RoomsModule && window.RoomsModule.isHost && window.gameState.players.length === 1);
+    const isMyTurn = current.id === window.myPlayerId;
 
     if (window.gameState.screen === "game" && !window.gameState.busy && !window.gameState.rolling) {
       if (isMyTurn) {
@@ -124,7 +124,33 @@ window.UIModule = {
     if (window.gameState.rolling || window.gameState.busy) return;
 
     const current = window.gameState.players[window.gameState.currentPlayer];
-    if (current.bankrupt) {
+    if (!current || current.id !== window.myPlayerId) {
+      this.showToast(`Chưa tới lượt của bạn! Đang chờ ${current?.name || "người chơi khác"}...`);
+      return;
+    }
+
+    if (window.RoomsModule && !window.RoomsModule.isHost) {
+      // Guest sends Request Roll Dice to Host
+      window.gameState.rolling = true;
+      const rollBtn = document.querySelector("#rollDiceBtn");
+      if (rollBtn) rollBtn.disabled = true;
+
+      window.RoomsModule.publishCloudMessage({
+        type: "REQ_ROLL_DICE",
+        playerId: window.myPlayerId
+      });
+      return;
+    }
+
+    // If Host, execute roll directly
+    await this.handleHostRollDice(current.id);
+  },
+
+  async handleHostRollDice(playerId) {
+    if (window.gameState.rolling || window.gameState.busy) return;
+
+    const current = window.gameState.players.find(p => p.id === playerId) || window.gameState.players[window.gameState.currentPlayer];
+    if (!current || current.bankrupt) {
       this.nextTurn();
       return;
     }
@@ -144,26 +170,8 @@ window.UIModule = {
     const total = result.total;
     const isDouble = result.valA === result.valB;
 
-    // Broadcast Action Roll Dice via Cloud
-    if (window.RoomsModule) {
-      window.RoomsModule.publishCloudMessage({
-        type: "ACTION_ROLL_DICE",
-        senderId: window.myPlayerId,
-        playerId: current.id,
-        valA: result.valA,
-        valB: result.valB,
-        total,
-        isDouble
-      });
-    }
-
-    const totalEl = document.querySelector("#diceTotal");
-    const moveTextEl = document.querySelector("#moveText");
-
-    if (totalEl) totalEl.textContent = `Tổng: ${total} ${isDouble ? "🎲 ĐÔI!" : ""}`;
-    if (moveTextEl) moveTextEl.textContent = `Di chuyển ${total} ô`;
-
-    this.addLog(`${current.name} đổ xúc xắc: ${result.valA} + ${result.valB} = ${total} ${isDouble ? "(ĐỔ ĐÔI!)" : ""}`);
+    const logMsg = `${current.name} đổ xúc xắc: ${result.valA} + ${result.valB} = ${total} ${isDouble ? "(ĐỔ ĐÔI!)" : ""}`;
+    this.addLog(logMsg);
 
     if (isDouble) {
       current.doubleRollCount = (current.doubleRollCount || 0) + 1;
@@ -172,45 +180,55 @@ window.UIModule = {
         current.position = 24;
         current.inJail = true;
         this.showToast(`🚨 ${current.name} ĐỔ ĐÔI 3 LẦN LIÊN TIẾP! BỊ ĐƯA VÀO ĐẢO BỊ LẶNG QUÊN!`);
-        this.addLog(`🚨 ${current.name} đổ đôi 3 lần liên tiếp và bị giam tại Hòn Đảo Bị Lãng Quên!`);
-        window.BoardModule.updatePlayerTokens();
-        setTimeout(() => this.nextTurn(), 1500);
-        return;
       }
     } else {
       current.doubleRollCount = 0;
     }
 
-    await window.AnimationsModule.movePlayerStepByStep(current, total, (newPos, passedStart) => {
-      if (passedStart) {
-        current.money += window.GameConfig.PASS_START_BONUS;
-        this.showToast(`🚩 ${current.name} qua ô Bắt Đầu: +$${window.GameConfig.PASS_START_BONUS}`);
-        this.addLog(`🚩 ${current.name} đi qua ô Bắt Đầu và nhận +$${window.GameConfig.PASS_START_BONUS}`);
-        this.renderPlayerRail();
-      }
-    });
+    // Move player position
+    current.position = (current.position + total) % 32;
+
+    if (window.RoomsModule) {
+      window.RoomsModule.publishCloudMessage({
+        type: "GAME_STATE_UPDATE",
+        valA: result.valA,
+        valB: result.valB,
+        total,
+        isDouble,
+        players: window.gameState.players,
+        boardCells: window.boardCells,
+        currentPlayer: window.gameState.currentPlayer,
+        round: window.gameState.round,
+        logMsg
+      });
+    }
 
     window.gameState.rolling = false;
     this.handleCellAction(current);
   },
 
-  async applyRemoteDiceRoll(data) {
+  async applyGameStateUpdate(data) {
     const diceA = document.querySelector("#diceA");
     const diceB = document.querySelector("#diceB");
     if (diceA) diceA.setAttribute("data-value", data.valA);
     if (diceB) diceB.setAttribute("data-value", data.valB);
 
-    const current = window.gameState.players.find(p => p.id === data.playerId) || window.gameState.players[window.gameState.currentPlayer];
-    if (!current) return;
+    const totalEl = document.querySelector("#diceTotal");
+    const moveTextEl = document.querySelector("#moveText");
 
-    this.showToast(`🎲 ${current.name} đổ xúc xắc: ${data.total}`);
+    if (totalEl) totalEl.textContent = `Tổng: ${data.total} ${data.isDouble ? "🎲 ĐÔI!" : ""}`;
+    if (moveTextEl) moveTextEl.textContent = `Di chuyển ${data.total} ô`;
 
-    await window.AnimationsModule.movePlayerStepByStep(current, data.total, (newPos, passedStart) => {
-      if (passedStart) {
-        current.money += window.GameConfig.PASS_START_BONUS;
-        this.renderPlayerRail();
-      }
-    });
+    if (data.players) window.gameState.players = data.players;
+    if (data.boardCells) window.boardCells = data.boardCells;
+    if (data.currentPlayer !== undefined) window.gameState.currentPlayer = data.currentPlayer;
+    if (data.round !== undefined) window.gameState.round = data.round;
+
+    if (data.logMsg) this.addLog(data.logMsg);
+
+    if (window.BoardModule) window.BoardModule.renderBoard();
+    this.renderPlayerRail();
+    this.updateTurnControls();
   },
 
   handleCellAction(player) {
@@ -358,14 +376,7 @@ window.UIModule = {
       this.addLog(`🏰 ${player.name} đã sở hữu ${cell.title} ($${cell.cost})`);
 
       if (window.RoomsModule) {
-        window.RoomsModule.publishCloudMessage({
-          type: "ACTION_BUY_PROPERTY",
-          senderId: window.myPlayerId,
-          playerId: player.id,
-          cellIndex: cell.id,
-          cost: cell.cost,
-          level: 0
-        });
+        window.RoomsModule.broadcastState();
       }
 
       window.BoardModule.renderBoard();
@@ -379,23 +390,6 @@ window.UIModule = {
       }
     }
     this.nextTurn();
-  },
-
-  applyRemoteBuyProperty(data) {
-    const cell = window.boardCells[data.cellIndex];
-    const player = window.gameState.players.find(p => p.id === data.playerId);
-
-    if (cell && player) {
-      cell.ownerId = player.id;
-      cell.level = data.level || 0;
-      player.money -= (data.cost || 0);
-      if (!player.properties) player.properties = [];
-      if (!player.properties.includes(cell.id)) player.properties.push(cell.id);
-
-      this.showToast(`🏰 ${player.name} đã mua ${cell.title}!`);
-      window.BoardModule.renderBoard();
-      this.renderPlayerRail();
-    }
   },
 
   openUpgradeModal(cell, player) {
@@ -418,6 +412,7 @@ window.UIModule = {
         player.money -= upgradeCost;
         cell.level = (cell.level || 0) + 1;
         this.showToast(`🏰 ${player.name} nâng cấp ${cell.title} lên Cấp ${cell.level}!`);
+        if (window.RoomsModule) window.RoomsModule.broadcastState();
         window.BoardModule.renderBoard();
         this.renderPlayerRail();
       }
@@ -446,6 +441,7 @@ window.UIModule = {
       if (targetIdx < player.position) player.money += window.GameConfig.PASS_START_BONUS;
       player.position = targetIdx;
       this.showToast(`✈️ ${player.name} đã bay đến ô số ${targetIdx}!`);
+      if (window.RoomsModule) window.RoomsModule.broadcastState();
       window.BoardModule.updatePlayerTokens();
       this.renderPlayerRail();
     }
@@ -462,6 +458,7 @@ window.UIModule = {
     const cell = ownedProperties[0];
     cell.festivalUntil = window.gameState.round + window.GameConfig.FESTIVAL_DURATION_ROUNDS;
     this.showToast(`🏆 ${cell.title} được chọn làm GIẢI ĐẤU THẾ GIỚI (x5 Tiền thuê)!`);
+    if (window.RoomsModule) window.RoomsModule.broadcastState();
     window.BoardModule.renderBoard();
     this.nextTurn();
   },
@@ -483,6 +480,7 @@ window.UIModule = {
       });
       player.properties = [];
 
+      if (window.RoomsModule) window.RoomsModule.broadcastState();
       window.BoardModule.renderBoard();
     }
   },
@@ -507,35 +505,18 @@ window.UIModule = {
     } while (window.gameState.players[nextIdx].bankrupt);
 
     window.gameState.currentPlayer = nextIdx;
-    const current = window.gameState.players[nextIdx];
 
     if (window.RoomsModule) {
-      window.RoomsModule.publishCloudMessage({
-        type: "ACTION_NEXT_TURN",
-        senderId: window.myPlayerId,
-        nextCurrentPlayer: nextIdx,
-        round: window.gameState.round
-      });
+      window.RoomsModule.broadcastState();
     }
 
     this.renderPlayerRail();
     if (window.BoardModule) window.BoardModule.updateCameraPerspective();
 
-    if (current.isBot) {
+    const current = window.gameState.players[nextIdx];
+    if (current.isBot && window.RoomsModule && window.RoomsModule.isHost) {
       window.BotModule.handleBotTurn(current);
     }
-  },
-
-  applyRemoteNextTurn(data) {
-    if (data.nextCurrentPlayer !== undefined) {
-      window.gameState.currentPlayer = data.nextCurrentPlayer;
-    }
-    if (data.round !== undefined) {
-      window.gameState.round = data.round;
-    }
-
-    this.renderPlayerRail();
-    if (window.BoardModule) window.BoardModule.updateCameraPerspective();
   },
 
   addLog(msg) {
