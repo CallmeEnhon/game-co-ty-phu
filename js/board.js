@@ -71,61 +71,63 @@ window.BoardModule = {
 
   /* ─── SMOOTH TOKEN PLACEMENT (no full re-render per step) ── */
   updatePlayerTokens() {
-    // Remove orphan tokens
     document.querySelectorAll(".board-token").forEach(t => t.remove());
 
-    // Group players by position to offset stacked tokens
     const byPos = {};
-    window.gameState.players.forEach(p => {
+    window.gameState.players.forEach((p, pIdx) => {
       if (p.bankrupt) return;
-      if (!byPos[p.position]) byPos[p.position] = [];
-      byPos[p.position].push(p);
+      const pos = p.position || 0;
+      if (!byPos[pos]) byPos[pos] = [];
+      byPos[pos].push({ player: p, playerIdx: pIdx });
     });
 
-    Object.entries(byPos).forEach(([pos, players]) => {
+    Object.entries(byPos).forEach(([pos, items]) => {
       const cellEl = document.querySelector(`[data-index="${pos}"]`);
       if (!cellEl) return;
-      players.forEach((player, i) => {
+      items.forEach(({ player, playerIdx }, i) => {
         const token = document.createElement("div");
-        token.className = `board-token token-${player.id}`;
-        token.style.setProperty("--token-color", player.color);
-        token.textContent = player.avatar || "♟";
-        // Offset stacked tokens
-        const offX = (i % 2) * 12 - (players.length > 1 ? 6 : 0);
-        const offY = Math.floor(i / 2) * 12 - (players.length > 2 ? 6 : 0);
-        token.style.transform = `translate(${offX}px, ${offY}px)`;
+        const isCurrentTurn = playerIdx === window.gameState.currentPlayer;
+        const safeId = String(player.id).replace(/[^a-zA-Z0-9_-]/g, "_");
+
+        token.className = `board-token token-${safeId} ${isCurrentTurn ? "current-turn-token" : ""}`;
+        token.style.setProperty("--token-color", player.color || "#f4b21f");
         token.dataset.playerId = player.id;
+
+        // Offset stacked tokens
+        const offX = (i % 2) * 16 - (items.length > 1 ? 8 : 0);
+        const offY = Math.floor(i / 2) * 16 - (items.length > 2 ? 8 : 0);
+        token.style.transform = `translate(${offX}px, ${offY}px)`;
+
+        const shortName = player.name || `P${playerIdx+1}`;
+
+        token.innerHTML = `
+          <div class="token-avatar">${player.avatar || "♟"}</div>
+          <div class="token-name-tag" style="background:${player.color || '#f4b21f'}">${shortName}</div>
+        `;
+
         cellEl.appendChild(token);
       });
     });
   },
 
   /* ─── ANIMATE TOKEN MOVING ONE STEP ────────────────────────
-     Called by AnimationsModule.movePlayerStepByStep()
-     We move the DOM token element smoothly without re-rendering the board.
+     Called by AnimationsModule.movePlayerStepByStep() and TOKEN_STEP_UPDATE
   ─────────────────────────────────────────────────────────── */
   animateTokenStep(player, newPos) {
-    const oldToken = document.querySelector(`.token-${player.id}`);
+    const safeId   = String(player.id).replace(/[^a-zA-Z0-9_-]/g, "_");
+    const oldToken = document.querySelector(`.token-${safeId}`) || document.querySelector(`[data-player-id="${player.id}"]`);
     const newCell  = document.querySelector(`[data-index="${newPos}"]`);
     if (!newCell) return;
 
-    // Add hop animation to existing token before moving
     if (oldToken) {
       oldToken.classList.add("hop");
       setTimeout(() => oldToken?.classList.remove("hop"), 320);
       setTimeout(() => {
-        // Move token into new cell
         newCell.appendChild(oldToken);
         oldToken.style.transform = "";
       }, 160);
     } else {
-      // Token doesn't exist yet, create it
-      const token = document.createElement("div");
-      token.className = `board-token token-${player.id}`;
-      token.style.setProperty("--token-color", player.color);
-      token.textContent = player.avatar || "♟";
-      token.dataset.playerId = player.id;
-      newCell.appendChild(token);
+      this.updatePlayerTokens();
     }
   },
 

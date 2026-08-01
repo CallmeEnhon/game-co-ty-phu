@@ -214,13 +214,19 @@ window.RoomsModule = {
     if (data.type === "JOIN_REQUEST" && this.isHost) {
       const existing = window.gameState.players.find(p => p.id === data.id);
       if (!existing && window.gameState.players.length < 4) {
-        const colors = ["#f4b21f", "#36a774", "#438bd4", "#e56376"];
-        const playerNum = window.gameState.players.filter(p => !p.isBot).length + 1;
+        const colors  = ["#f4b21f", "#36a774", "#438bd4", "#e56376"];
+        const avatars = ["👑", "🦁", "⚡", "🔮"];
+        const nextNum = window.gameState.players.length + 1;
+        const defaultName = `Player ${nextNum}`;
+        const assignedName = (data.name && data.name.trim() && !data.name.startsWith("Player"))
+          ? data.name.trim()
+          : defaultName;
+
         const newPlayer = {
           id: data.id,
-          name: data.name || `Player ${playerNum}`,
-          avatar: "👤",
-          color: colors[window.gameState.players.length % colors.length],
+          name: assignedName,
+          avatar: avatars[(nextNum - 1) % avatars.length],
+          color: colors[(nextNum - 1) % colors.length],
           money: window.GameConfig.STARTING_MONEY,
           asset: 0,
           host: false,
@@ -306,6 +312,21 @@ window.RoomsModule = {
     } else if (data.type === "REQ_ROLL_DICE") {
       if (this.isHost && window.UIModule) {
         window.UIModule.handleHostRollDice(data.playerId);
+      }
+
+    } else if (data.type === "DICE_ROLL_START") {
+      const dA = document.querySelector("#diceA"), dB = document.querySelector("#diceB");
+      if (window.AnimationsModule && dA && dB) {
+        window.AnimationsModule.animateDiceRoll(dA, dB);
+      }
+
+    } else if (data.type === "TOKEN_STEP_UPDATE") {
+      const player = window.gameState.players.find(p => String(p.id) === String(data.playerId));
+      if (player) {
+        player.position = data.newPos;
+        if (window.BoardModule?.animateTokenStep) {
+          window.BoardModule.animateTokenStep(player, data.newPos);
+        }
       }
 
     } else if (data.type === "GAME_STATE_UPDATE") {

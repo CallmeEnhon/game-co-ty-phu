@@ -119,6 +119,10 @@ window.UIModule = {
     const rollBtn = document.querySelector("#rollDiceBtn");
     if (rollBtn) rollBtn.disabled = true;
 
+    if (window.RoomsModule) {
+      window.RoomsModule.publishCloudMessage({ type: "DICE_ROLL_START", playerId });
+    }
+
     const diceA  = document.querySelector("#diceA");
     const diceB  = document.querySelector("#diceB");
     const result = await window.AnimationsModule.animateDiceRoll(diceA, diceB);

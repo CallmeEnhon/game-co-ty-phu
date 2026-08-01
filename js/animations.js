@@ -65,7 +65,16 @@ window.AnimationsModule = {
 
       player.position = newPos;
 
-      // Smooth DOM token hop (no full board re-render)
+      // Broadcast TOKEN_STEP_UPDATE so all players in room see step movement in real time!
+      if (window.RoomsModule) {
+        window.RoomsModule.publishCloudMessage({
+          type: "TOKEN_STEP_UPDATE",
+          playerId: player.id,
+          newPos: newPos
+        });
+      }
+
+      // Local smooth DOM token hop
       if (window.BoardModule?.animateTokenStep) {
         window.BoardModule.animateTokenStep(player, newPos);
       }
@@ -76,7 +85,7 @@ window.AnimationsModule = {
       await this.delay(350);
     }
 
-    // Final board sync after all steps (update owner dots, festival badges, etc.)
+    // Final board sync after all steps
     if (window.BoardModule?.renderBoard) {
       window.BoardModule.renderBoard();
     }

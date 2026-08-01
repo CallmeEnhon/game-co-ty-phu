@@ -671,41 +671,67 @@ body {
   font-size: 8px;
 }
 
-/* PLAYER TOKENS – smooth CSS transition for movement */
+/* PLAYER TOKENS – Ultra clear 3D pin badge with floating name tags */
 .board-token {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 12px;
-  font-weight: 900;
-  background: radial-gradient(circle at 35% 35%, #ffffff 0%, var(--token-color, #f4b21f) 60%, rgba(0,0,0,0.6) 100%);
-  border: 2px solid rgba(255,255,255,0.9);
-  /* Smooth glide + spring bounce */
-  transition: transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1),
-              box-shadow 0.3s ease;
   position: absolute;
   z-index: 30;
-  cursor: default;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  cursor: pointer;
+  background: radial-gradient(circle at 35% 35%, #ffffff 0%, var(--token-color, #f4b21f) 60%, rgba(0,0,0,0.7) 100%);
+  border: 2px solid #ffffff;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.6), inset 0 2px 3px rgba(255,255,255,0.8);
+  transition: transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
 }
 
-@keyframes floatToken {
-  0%   { transform: rotateX(-35deg) translateZ(22px) translateY(0px); }
-  100% { transform: rotateX(-35deg) translateZ(30px) translateY(-5px); }
+.token-avatar {
+  font-size: 13px;
+  line-height: 1;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));
 }
 
-/* Hop animation: token bounces up when stepping to a new cell */
+.token-name-tag {
+  position: absolute;
+  bottom: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 7.5px;
+  font-weight: 900;
+  color: #ffffff;
+  padding: 1px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.7);
+  pointer-events: none;
+  border: 1px solid rgba(255,255,255,0.4);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+}
+
+.board-token.current-turn-token {
+  z-index: 50 !important;
+  box-shadow: 0 0 0 3px #f4b21f, 0 6px 18px rgba(244,178,31,0.8);
+  animation: tokenPulseTurn 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes tokenPulseTurn {
+  0%   { transform: scale(1); filter: brightness(1); }
+  100% { transform: scale(1.15); filter: brightness(1.25); }
+}
+
 .board-token.hop {
   animation: tokenHop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
 }
 
 @keyframes tokenHop {
-  0%   { transform: translateY(0)    scale(1); }
-  40%  { transform: translateY(-18px) scale(1.3); }
-  70%  { transform: translateY(-8px)  scale(1.1); }
-  100% { transform: translateY(0)    scale(1); }
+  0%   { transform: translateY(0) scale(1); }
+  40%  { transform: translateY(-20px) scale(1.35); }
+  70%  { transform: translateY(-8px) scale(1.15); }
+  100% { transform: translateY(0) scale(1); }
 }
 
 /* BOARD CENTER AREA */
