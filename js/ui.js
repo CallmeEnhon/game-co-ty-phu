@@ -205,6 +205,28 @@ window.UIModule = {
 
     this.addLog(`📍 ${player.name} dừng tại: ${cell.icon} ${cell.title}`);
 
+    // If Host is handling a human Guest's turn on a decision cell, request Guest's decision
+    const isHumanGuest = window.RoomsModule?.isHost && player.id !== window.myPlayerId && !player.isBot;
+    const isDecisionCell = (cell.type === "property" || cell.type === "beach" || cell.type === "world_tour" || cell.type === "festival");
+
+    if (isHumanGuest && isDecisionCell) {
+      // Check if property is already owned by someone else (automatic rent payment, no decision needed)
+      const isOpponentLand = (cell.type === "property" || cell.type === "beach") && cell.ownerId && cell.ownerId !== player.id;
+      if (!isOpponentLand) {
+        window.gameState.busy = false;
+        this.showToast(`⏳ ${player.name} đang xem xét...`);
+        if (window.RoomsModule) {
+          window.RoomsModule.publishCloudMessage({
+            type: "CELL_ACTION_REQ",
+            playerId: player.id,
+            position: player.position,
+            cellType: cell.type
+          });
+        }
+        return;
+      }
+    }
+
     switch (cell.type) {
       case "property":
       case "beach":
@@ -364,28 +386,33 @@ window.UIModule = {
 
     const handlePay = () => {
       cleanup();
+      modal.classList.add("hidden");
+      if (window.RoomsModule && !window.RoomsModule.isHost) {
+        window.RoomsModule.publishCloudMessage({ type: "REQ_JAIL_PAY", playerId: window.myPlayerId });
+        return;
+      }
       if ((player.money||0) >= window.GameConfig.JAIL_FINE) {
         player.money    -= window.GameConfig.JAIL_FINE;
         player.inJail    = false;
         player.jailTurns = 0;
         this.showToast(`✅ ${player.name} trả ${window.fmtMoney(window.GameConfig.JAIL_FINE)} – thoát Đảo Hoang!`);
         this.addLog(`✅ ${player.name} nộp phạt ${window.fmtMoney(window.GameConfig.JAIL_FINE)}, được thả`);
-        modal.classList.add("hidden");
         window.gameState.busy = false;
         if (window.RoomsModule) window.RoomsModule.broadcastState();
         this.renderPlayerRail();
         this.handleHostRollDice(player.id);
       } else {
         this.showToast(`❌ Không đủ ${window.fmtMoney(window.GameConfig.JAIL_FINE)}!`);
-        // Mở lại
-        payBtn?.addEventListener("click", handlePay, {once:true});
-        rollBtn?.addEventListener("click", handleRoll, {once:true});
       }
     };
 
     const handleRoll = async () => {
       cleanup();
       modal.classList.add("hidden");
+      if (window.RoomsModule && !window.RoomsModule.isHost) {
+        window.RoomsModule.publishCloudMessage({ type: "REQ_JAIL_ROLL", playerId: window.myPlayerId });
+        return;
+      }
       window.gameState.busy = false;
 
       const diceA = document.querySelector("#diceA"), diceB = document.querySelector("#diceB");
@@ -409,7 +436,6 @@ window.UIModule = {
       } else {
         player.jailTurns = (player.jailTurns || 0) + 1;
         if (player.jailTurns >= window.GameConfig.JAIL_MAX_TURNS) {
-          // Sau 3 lượt thất bại → buộc trả tiền
           const canPay = (player.money||0) >= window.GameConfig.JAIL_FINE;
           player.money    -= canPay ? window.GameConfig.JAIL_FINE : (player.money||0);
           player.inJail    = false;
@@ -469,11 +495,15 @@ window.UIModule = {
 
     document.querySelector("#worldTourConfirmBtn").onclick = () => {
       const destId   = parseInt(document.querySelector("#worldTourSelect").value, 10);
+      div.remove();
+      if (window.RoomsModule && !window.RoomsModule.isHost) {
+        window.RoomsModule.publishCloudMessage({ type: "REQ_WORLD_TOUR", playerId: window.myPlayerId, destId });
+        return;
+      }
       const destCell = window.boardCells[destId];
       if (!destCell) return;
 
       const oldPos = player.position;
-      // Qua ô START khi bay?
       if (destId < oldPos || destId === 0) {
         player.money += window.GameConfig.PASS_START_BONUS;
         this.showToast(`🚩 Qua Bắt Đầu trong chuyến bay: +${window.fmtMoney(window.GameConfig.PASS_START_BONUS)}`);
@@ -482,7 +512,6 @@ window.UIModule = {
 
       this.showToast(`✈️ ${player.name} bay đến ${destCell.icon} ${destCell.title}!`);
       this.addLog(`✈️ ${player.name} chọn Chuyến Công Tác → ${destCell.title} (ô ${destId})`);
-      div.remove();
 
       window.BoardModule?.updatePlayerTokens?.();
       this.renderPlayerRail();
@@ -493,6 +522,10 @@ window.UIModule = {
 
     document.querySelector("#worldTourCancelBtn").onclick = () => {
       div.remove();
+      if (window.RoomsModule && !window.RoomsModule.isHost) {
+        window.RoomsModule.publishCloudMessage({ type: "REQ_SKIP_PROPERTY", playerId: window.myPlayerId });
+        return;
+      }
       window.gameState.busy = false;
       this.nextTurn();
     };
@@ -503,28 +536,35 @@ window.UIModule = {
     const owned = (player.properties || []).map(i => window.boardCells[i]).filter(c => c && c.type === "property");
 
     if (owned.length === 0) {
-      // Theo luật: nếu không sở hữu đất, có thể chọn đất trống
       const emptyProps = window.boardCells.filter(c => c.type === "property" && !c.ownerId);
       if (emptyProps.length === 0) {
         this.showToast(`⚠️ Không có đất nào để tổ chức sự kiện!`);
-        window.gameState.busy = false; this.nextTurn(); return;
+        if (window.RoomsModule && !window.RoomsModule.isHost) {
+          window.RoomsModule.publishCloudMessage({ type: "REQ_SKIP_PROPERTY", playerId: window.myPlayerId });
+        } else {
+          window.gameState.busy = false; this.nextTurn();
+        }
+        return;
       }
     }
 
-    // Hợp lệ: đất của mình + đất trống
     const validCells = window.boardCells.filter(c =>
       c.type === "property" && (c.ownerId === player.id || !c.ownerId)
     );
 
     if (validCells.length === 0) {
       this.showToast(`⚠️ Không có đất hợp lệ để tổ chức!`);
-      window.gameState.busy = false; this.nextTurn(); return;
+      if (window.RoomsModule && !window.RoomsModule.isHost) {
+        window.RoomsModule.publishCloudMessage({ type: "REQ_SKIP_PROPERTY", playerId: window.myPlayerId });
+      } else {
+        window.gameState.busy = false; this.nextTurn();
+      }
+      return;
     }
 
     this.showToast("🏆 Chọn khu đất để tổ chức Sự Kiện Công Ty!");
     this.addLog(`🏆 ${player.name} đang chọn khu đất tổ chức Lễ Hội (x2 thuê, ${window.GameConfig.FESTIVAL_DURATION_ROUNDS} vòng)`);
 
-    // Glow tất cả ô hợp lệ trên board
     const boardCellEls = document.querySelectorAll(".board-cell");
     boardCellEls.forEach(el => {
       const cid  = parseInt(el.dataset.cellId, 10);
@@ -533,16 +573,19 @@ window.UIModule = {
         el.classList.add("festival-selectable");
 
         const handler = () => {
-          // Remove all glows
           document.querySelectorAll(".festival-selectable").forEach(x => {
             x.classList.remove("festival-selectable");
             x._festHandler && x.removeEventListener("click", x._festHandler);
           });
 
+          if (window.RoomsModule && !window.RoomsModule.isHost) {
+            window.RoomsModule.publishCloudMessage({ type: "REQ_FESTIVAL", playerId: window.myPlayerId, cellId: cell.id });
+            return;
+          }
+
           cell.festivalUntil = window.gameState.round + window.GameConfig.FESTIVAL_DURATION_ROUNDS;
           el.classList.add("festival-active-cell");
 
-          const currentRent = window.calculateEffectiveRent(cell);
           this.showToast(`🎊 ${cell.title} tổ chức Sự Kiện! Thuê x${window.GameConfig.FESTIVAL_RENT_MULTIPLIER} (${window.GameConfig.FESTIVAL_DURATION_ROUNDS} vòng)`);
           this.addLog(`🎊 ${player.name} chọn ${cell.title} → Thuê x${window.GameConfig.FESTIVAL_RENT_MULTIPLIER} trong ${window.GameConfig.FESTIVAL_DURATION_ROUNDS} vòng`);
 
@@ -572,7 +615,6 @@ window.UIModule = {
     document.querySelector("#propertyRent").textContent       = window.fmtMoney(cell.rent);
     document.querySelector("#propertyOwnerText").textContent  = "Chưa có chủ sở hữu";
 
-    // Thêm bảng các cấp nếu element tồn tại
     const detailEl = modal.querySelector("#propertyLevels") || modal.querySelector(".property-levels");
     if (detailEl) {
       detailEl.innerHTML = levelLabels.slice(1).map((label,i)=>`
@@ -587,10 +629,22 @@ window.UIModule = {
     if (buyBtn) {
       buyBtn.textContent = canBuy ? `Mua (${window.fmtMoney(cell.cost)})` : `❌ Không đủ tiền`;
       buyBtn.disabled    = !canBuy;
-      buyBtn.onclick     = canBuy ? () => { this.buyProperty(player, cell); modal.classList.add("hidden"); } : null;
+      buyBtn.onclick     = canBuy ? () => {
+        modal.classList.add("hidden");
+        if (window.RoomsModule && !window.RoomsModule.isHost) {
+          window.RoomsModule.publishCloudMessage({ type: "REQ_BUY_PROPERTY", playerId: window.myPlayerId, cellId: cell.id });
+        } else {
+          this.buyProperty(player, cell);
+        }
+      } : null;
     }
     document.querySelector("#skipPropertyBtn").onclick = () => {
-      modal.classList.add("hidden"); window.gameState.busy = false; this.nextTurn();
+      modal.classList.add("hidden");
+      if (window.RoomsModule && !window.RoomsModule.isHost) {
+        window.RoomsModule.publishCloudMessage({ type: "REQ_SKIP_PROPERTY", playerId: window.myPlayerId });
+      } else {
+        window.gameState.busy = false; this.nextTurn();
+      }
     };
     modal.classList.remove("hidden");
   },
@@ -608,13 +662,11 @@ window.UIModule = {
     window.BoardModule?.renderBoard();
     this.renderPlayerRail();
 
-    // Kiểm tra chiến thắng bãi biển
     if (window.checkBeachMonopolyWin(player)) {
       this.showToast(`🏆 ${player.name} sở hữu đủ 4 Bãi Biển – THẮNG!`);
       setTimeout(() => this.showScreen("result"), 1000);
       return;
     }
-    // Kiểm tra độc quyền cạnh bàn cờ (winning condition)
     this._checkEdgeMonopolyWin(player);
 
     window.gameState.busy = false;
@@ -623,7 +675,6 @@ window.UIModule = {
 
   _checkEdgeMonopolyWin(player) {
     if (!window.gameSettings.monopolyWinEnabled) return;
-    // Cạnh dưới: ô 0-8, cạnh phải: 8-16, cạnh trên: 16-24, cạnh trái: 24-31+0
     const edges = [[1,3,5,6,7],[9,10,11,13,14,15],[17,18,19,21,22,23],[25,26,27,28,29,30,31]];
     for (const edge of edges) {
       const landEdge = edge.filter(i => window.boardCells[i]?.type === "property" || window.boardCells[i]?.type === "beach");
@@ -658,20 +709,29 @@ window.UIModule = {
       buyBtn.textContent = canUpgrade ? `⬆️ Nâng cấp (${window.fmtMoney(upgradeCost)})` : `❌ Không đủ tiền (${window.fmtMoney(upgradeCost)})`;
       buyBtn.disabled    = !canUpgrade;
       buyBtn.onclick = canUpgrade ? () => {
-        player.money -= upgradeCost;
-        cell.level    = nextLevel;
-        this.showToast(`⬆️ ${player.name} nâng cấp ${cell.title} → ${levelLabels[nextLevel]}`);
-        this.addLog(`⬆️ ${player.name} nâng cấp ${cell.title} lên ${levelLabels[nextLevel]}`);
-        if (window.RoomsModule) window.RoomsModule.broadcastState();
-        window.BoardModule?.renderBoard();
-        this.renderPlayerRail();
         modal.classList.add("hidden");
-        window.gameState.busy = false;
-        this.nextTurn();
+        if (window.RoomsModule && !window.RoomsModule.isHost) {
+          window.RoomsModule.publishCloudMessage({ type: "REQ_UPGRADE_PROPERTY", playerId: window.myPlayerId, cellId: cell.id });
+        } else {
+          player.money -= upgradeCost;
+          cell.level    = nextLevel;
+          this.showToast(`⬆️ ${player.name} nâng cấp ${cell.title} → ${levelLabels[nextLevel]}`);
+          this.addLog(`⬆️ ${player.name} nâng cấp ${cell.title} lên ${levelLabels[nextLevel]}`);
+          if (window.RoomsModule) window.RoomsModule.broadcastState();
+          window.BoardModule?.renderBoard();
+          this.renderPlayerRail();
+          window.gameState.busy = false;
+          this.nextTurn();
+        }
       } : null;
     }
     document.querySelector("#skipPropertyBtn").onclick = () => {
-      modal.classList.add("hidden"); window.gameState.busy = false; this.nextTurn();
+      modal.classList.add("hidden");
+      if (window.RoomsModule && !window.RoomsModule.isHost) {
+        window.RoomsModule.publishCloudMessage({ type: "REQ_SKIP_PROPERTY", playerId: window.myPlayerId });
+      } else {
+        window.gameState.busy = false; this.nextTurn();
+      }
     };
     modal.classList.remove("hidden");
   },

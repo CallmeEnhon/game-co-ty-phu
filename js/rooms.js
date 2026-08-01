@@ -287,9 +287,12 @@ window.RoomsModule = {
       if (data.currentPlayer !== undefined) window.gameState.currentPlayer = data.currentPlayer;
       if (data.round !== undefined) window.gameState.round = data.round;
 
-      if (data.screen && data.screen !== window.gameState.screen && data.screen !== "game") {
+      if (data.screen && data.screen !== window.gameState.screen) {
         if (window.UIModule) window.UIModule.showScreen(data.screen);
       }
+
+      window.gameState.rolling = false;
+      window.gameState.busy    = false;
 
       this.renderLobbyPlayers();
       if (window.BoardModule) window.BoardModule.renderBoard();
@@ -299,13 +302,134 @@ window.RoomsModule = {
       }
     } else if (data.type === "START_COUNTDOWN") {
       this.playCountdownAndStart();
+
     } else if (data.type === "REQ_ROLL_DICE") {
       if (this.isHost && window.UIModule) {
         window.UIModule.handleHostRollDice(data.playerId);
       }
+
     } else if (data.type === "GAME_STATE_UPDATE") {
       if (window.UIModule) {
         window.UIModule.applyGameStateUpdate(data);
+      }
+
+    } else if (data.type === "CELL_ACTION_REQ") {
+      if (data.playerId === window.myPlayerId && window.UIModule) {
+        window.gameState.rolling = false;
+        window.gameState.busy    = false;
+        const player = window.gameState.players.find(p => p.id === window.myPlayerId);
+        const cell   = window.boardCells[data.position];
+        if (player && cell) {
+          if (cell.type === "property" || cell.type === "beach") {
+            if (!cell.ownerId) {
+              window.UIModule.openPropertyModal(cell, player);
+            } else if (cell.ownerId === player.id) {
+              window.UIModule.openUpgradeModal(cell, player);
+            }
+          } else if (cell.type === "world_tour") {
+            window.UIModule.openWorldTourModal(player);
+          } else if (cell.type === "festival") {
+            window.UIModule.openFestivalModal(player);
+          }
+        }
+      }
+
+    } else if (data.type === "REQ_BUY_PROPERTY" && this.isHost) {
+      const player = window.gameState.players.find(p => p.id === data.playerId);
+      const cell   = window.boardCells[data.cellId];
+      if (player && cell && !cell.ownerId) {
+        window.UIModule.buyProperty(player, cell);
+      } else if (window.UIModule) {
+        window.UIModule.nextTurn();
+      }
+
+    } else if (data.type === "REQ_SKIP_PROPERTY" && this.isHost) {
+      if (window.UIModule) window.UIModule.nextTurn();
+
+    } else if (data.type === "REQ_UPGRADE_PROPERTY" && this.isHost) {
+      const player = window.gameState.players.find(p => p.id === data.playerId);
+      const cell   = window.boardCells[data.cellId];
+      if (player && cell && cell.ownerId === player.id) {
+        const upgradeCost = window.calculateUpgradeCost(cell);
+        if ((player.money || 0) >= upgradeCost) {
+          player.money -= upgradeCost;
+          cell.level    = (cell.level || 0) + 1;
+          window.UIModule.showToast(`⬆️ ${player.name} nâng cấp ${cell.title} → Cấp ${cell.level}!`);
+          window.UIModule.addLog(`⬆️ ${player.name} nâng cấp ${cell.title} lên Cấp ${cell.level}`);
+        }
+      }
+      this.broadcastState();
+      if (window.UIModule) window.UIModule.nextTurn();
+
+    } else if (data.type === "REQ_WORLD_TOUR" && this.isHost) {
+      const player = window.gameState.players.find(p => p.id === data.playerId);
+      const destCell = window.boardCells[data.destId];
+      if (player && destCell) {
+        const oldPos = player.position;
+        if (data.destId < oldPos || data.destId === 0) {
+          player.money += window.GameConfig.PASS_START_BONUS;
+        }
+        player.position = data.destId;
+        window.UIModule.showToast(`✈️ ${player.name} bay đến ${destCell.icon} ${destCell.title}!`);
+        window.UIModule.addLog(`✈️ ${player.name} chọn Chuyến Công Tác → ${destCell.title}`);
+        this.broadcastState();
+        if (window.UIModule) window.UIModule.handleCellAction(player);
+      } else if (window.UIModule) {
+        window.UIModule.nextTurn();
+      }
+
+    } else if (data.type === "REQ_FESTIVAL" && this.isHost) {
+      const player = window.gameState.players.find(p => p.id === data.playerId);
+      const cell   = window.boardCells[data.cellId];
+      if (player && cell) {
+        cell.festivalUntil = window.gameState.round + window.GameConfig.FESTIVAL_DURATION_ROUNDS;
+        window.UIModule.showToast(`🎊 ${cell.title} tổ chức Sự Kiện! Thuê x${window.GameConfig.FESTIVAL_RENT_MULTIPLIER}!`);
+        window.UIModule.addLog(`🎊 ${player.name} chọn ${cell.title} làm Sự Kiện`);
+      }
+      this.broadcastState();
+      if (window.UIModule) window.UIModule.nextTurn();
+
+    } else if (data.type === "REQ_JAIL_PAY" && this.isHost) {
+      const player = window.gameState.players.find(p => p.id === data.playerId);
+      if (player && (player.money || 0) >= window.GameConfig.JAIL_FINE) {
+        player.money    -= window.GameConfig.JAIL_FINE;
+        player.inJail    = false;
+        player.jailTurns = 0;
+        window.UIModule.showToast(`✅ ${player.name} trả ${window.fmtMoney(window.GameConfig.JAIL_FINE)} – thoát Đảo Hoang!`);
+        window.UIModule.addLog(`✅ ${player.name} nộp phạt ${window.fmtMoney(window.GameConfig.JAIL_FINE)}, được thả`);
+        this.broadcastState();
+        window.UIModule.handleHostRollDice(player.id);
+      }
+
+    } else if (data.type === "REQ_JAIL_ROLL" && this.isHost) {
+      const player = window.gameState.players.find(p => p.id === data.playerId);
+      if (player) {
+        const valA = Math.ceil(Math.random()*6);
+        const valB = Math.ceil(Math.random()*6);
+        const total = valA + valB;
+        const isDouble = valA === valB;
+        window.UIModule.addLog(`${player.name} tung thử vận: ${valA}+${valB}=${total} ${isDouble?"✅ĐÔI":"❌ Trượt"}`);
+
+        if (isDouble) {
+          player.inJail    = false;
+          player.jailTurns = 0;
+          window.UIModule.showToast(`🎉 Tung Đôi! ${player.name} thoát Đảo Hoang – di chuyển ${total} ô!`);
+          window.AnimationsModule.movePlayerStepByStep(player, total, (_, passedStart) => {
+            if (passedStart) player.money += window.GameConfig.PASS_START_BONUS;
+          }).then(() => {
+            this.broadcastState();
+            window.UIModule.handleCellAction(player, true);
+          });
+        } else {
+          player.jailTurns = (player.jailTurns || 0) + 1;
+          if (player.jailTurns >= window.GameConfig.JAIL_MAX_TURNS) {
+            const canPay = (player.money||0) >= window.GameConfig.JAIL_FINE;
+            player.money -= canPay ? window.GameConfig.JAIL_FINE : (player.money||0);
+            player.inJail = false; player.jailTurns = 0;
+          }
+          this.broadcastState();
+          window.UIModule.nextTurn();
+        }
       }
     }
   },
